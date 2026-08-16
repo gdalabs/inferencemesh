@@ -112,6 +112,17 @@ export interface ProviderConfig {
   accountIdEnv?: string;
   /** Highest sensitivity any model of this provider may serve. */
   maxPrivacy: PrivacyLevel;
+  /**
+   * Where a human goes to get the key. Required for anything with an
+   * `apiKeyEnv`, because "set GROQ_API_KEY" is only actionable if you already
+   * know Groq exists — which is exactly the knowledge this tool exists to
+   * remove the need for.
+   */
+  signupUrl?: string;
+  /** One line, shown during setup: what this provider gives you. */
+  summary?: string;
+  /** Shown during setup: what it costs and what the free tier allows. */
+  freeTierNote?: string;
   /** Extra headers merged into every request (e.g. OpenRouter attribution). */
   headers?: Record<string, string>;
   models: ModelEntry[];
@@ -135,7 +146,15 @@ export interface MeshProfile {
   maxPricePerMTok?: number;
   /** Capabilities every candidate must have, on top of the request's. */
   requireCapabilities?: Capability[];
-  /** Scoring weights. Need not sum to 1; they are normalised at scoring time. */
+  /**
+   * Scoring weights. Need not sum to 1; they are normalised at scoring time.
+   *
+   * A term that is identical across every candidate cannot change the ordering,
+   * it only shifts all scores equally. That matters once a registry is
+   * generated rather than curated: with uniform quality, uniform language and
+   * an all-free pool, `latency` and `reliability` are the only terms doing any
+   * work, and the ranking becomes "fastest thing that is actually answering".
+   */
   weights: {
     quality: number;
     /** Rewards cheap candidates. */
@@ -144,6 +163,8 @@ export interface MeshProfile {
     latency: number;
     /** Rewards competence in the requested language. */
     language: number;
+    /** Rewards a high observed success rate. Optional for older configs. */
+    reliability?: number;
   };
 }
 

@@ -22,6 +22,9 @@
       "baseUrl": "https://api.groq.com/openai/v1",
       "apiKeyEnv": "GROQ_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://console.groq.com/keys",
+      "summary": "Llama と MiniMax M2.7 が非常に高速",
+      "freeTierNote": "無料枠あり・クレジットカード不要",
       "models": [
         {
           "id": "llama-3.3-70b-versatile",
@@ -147,6 +150,9 @@
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
       "apiKeyEnv": "GEMINI_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://aistudio.google.com/apikey",
+      "summary": "Google Gemini（画像も読める・日本語が強い）",
+      "freeTierNote": "無料枠あり・クレジットカード不要",
       "models": [
         {
           "id": "gemini-2.5-flash",
@@ -220,6 +226,9 @@
       "baseUrl": "https://integrate.api.nvidia.com/v1",
       "apiKeyEnv": "NVIDIA_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://build.nvidia.com/",
+      "summary": "DeepSeek・Kimi・MiniMax・GLM が全部そろう",
+      "freeTierNote": "無料・クレジットカード不要（NVIDIA Developer Program の登録が要る）",
       "$comment": [
         "build.nvidia.com（NVIDIA Developer Program・クレカ不要）。/v1/models を無認証で引けるので",
         "2026-08-16 に実在を確認済み（102モデル）。DeepSeek / Kimi / MiniMax / GLM の4系統が",
@@ -378,6 +387,9 @@
       "baseUrl": "https://api.z.ai/api/paas/v4",
       "apiKeyEnv": "ZAI_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://z.ai/manage-apikey/apikey-list",
+      "summary": "GLM 本家。flash 系が無料",
+      "freeTierNote": "無料枠あり（同時実行1）",
       "$comment": [
         "Z.ai（GLM 本家）。POST /api/paas/v4/chat/completions が 401 を返すことを実測で確認（＝実在）。",
         "flash 系（glm-4.7-flash / glm-4.5-flash / glm-4.6v-flash）が恒久無料とされる。",
@@ -484,6 +496,9 @@
       "baseUrl": "https://api-inference.modelscope.cn/v1",
       "apiKeyEnv": "MODELSCOPE_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://modelscope.cn/my/myaccesstoken",
+      "summary": "DeepSeek V4 と MiniMax M3（中国本土でホスト）",
+      "freeTierNote": "無料枠あり",
       "$comment": [
         "ModelScope（Alibaba）。/v1/models を無認証で引けるので 43モデルの実在を確認済み（2026-08-16）。",
         "DeepSeek V4 Flash/Pro と MiniMax M3 が無料枠にある。",
@@ -575,6 +590,9 @@
       "apiKeyEnv": "CLOUDFLARE_API_TOKEN",
       "accountIdEnv": "CLOUDFLARE_ACCOUNT_ID",
       "maxPrivacy": "internal",
+      "signupUrl": "https://dash.cloudflare.com/profile/api-tokens",
+      "summary": "Kimi K2.5 と GLM-4.7-flash",
+      "freeTierNote": "無料枠は1日10,000 Neurons。大きいモデルは有料プラン専用",
       "models": [
         {
           "id": "@cf/moonshotai/kimi-k2.5",
@@ -719,6 +737,9 @@
       "baseUrl": "https://openrouter.ai/api/v1",
       "apiKeyEnv": "OPENROUTER_API_KEY",
       "maxPrivacy": "internal",
+      "signupUrl": "https://openrouter.ai/keys",
+      "summary": "多数のモデルを1つの鍵で。無料枠のモデルのみ登録済み",
+      "freeTierNote": "無料モデルのみ使う限り課金なし",
       "headers": {
         "X-Title": "InferenceMesh"
       },
@@ -846,6 +867,9 @@
       "baseUrl": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
       "apiKeyEnv": "OVH_AI_TOKEN",
       "maxPrivacy": "internal",
+      "signupUrl": "https://endpoints.ai.cloud.ovh.net/",
+      "summary": "Qwen 系（EU・フランスでホスト）",
+      "freeTierNote": "無料枠あり",
       "$comment": [
         "OVHcloud AI Endpoints（EU・フランス）。/v1/models を無認証で引けて20モデルの実在を確認（2026-08-16）。",
         "DeepSeek/Kimi/MiniMax は無いが Qwen が厚い。**EU圏でホストされている**点が他と違うので、",
@@ -911,6 +935,9 @@
       "apiKeyEnv": "LLM7_API_KEY",
       "apiKeyOptional": true,
       "maxPrivacy": "public",
+      "signupUrl": "https://token.llm7.io/",
+      "summary": "登録しなくても使える。鍵を入れると使えるモデルが増える",
+      "freeTierNote": "完全無料・鍵なしでも動く",
       "$comment": [
         "🔴 このプロバイダは API キー無しで動く（2026-08-16 に minimax-m2.7 で実測。usage 付きの本物の応答）。",
         "サインアップ不要なので『サイト訪問者に無料AI体験を出す』用途に直接使える唯一の経路。",

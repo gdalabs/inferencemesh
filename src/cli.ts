@@ -2,6 +2,7 @@
 /**
  * CLI.
  *
+ *   inferencemesh setup            walk through getting keys, verifying each one
  *   inferencemesh probe            call every candidate once and report what works
  *   inferencemesh route <profile>  explain a routing decision without any network
  *   inferencemesh serve            start the Node gateway
@@ -13,12 +14,14 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { registryFrom } from './config.js';
 import { InferenceMesh } from './mesh.js';
 import { Router } from './router.js';
 import { blendedPrice, maxPrivacyOf } from './registry.js';
 import { configFromEnv, main as serveMain } from './server/node.js';
+import { runSetup } from './setup.js';
 import { ProviderError } from './providers/base.js';
 import type { Capability, PrivacyLevel } from './types.js';
 
@@ -151,18 +154,30 @@ async function cmdRoute(argv: string[]): Promise<number> {
 
 async function run(): Promise<void> {
   const [cmd, ...argv] = process.argv.slice(2);
+  // `process.exitCode`, never `process.exit()`.
+  //
+  // process.exit() terminates before pending stdout writes are flushed, and
+  // writes to a pipe are asynchronous — so `probe --json | jq` would silently
+  // lose the tail of its own output. Setting the code and letting the process
+  // end naturally flushes first. This cost an afternoon once; leave it alone.
   switch (cmd) {
     case 'probe':
-      process.exit(await cmdProbe(argv));
+      process.exitCode = await cmdProbe(argv);
       break;
     case 'route':
-      process.exit(await cmdRoute(argv));
+      process.exitCode = await cmdRoute(argv);
       break;
+    case 'setup': {
+      const cfg = configFromEnv();
+      const envPath = argv.find((a) => !a.startsWith('-')) ?? resolve(process.cwd(), '.env');
+      process.exitCode = await runSetup(cfg.registryPath, envPath);
+      break;
+    }
     case 'serve':
       await serveMain();
       break;
     default:
-      fail('usage: inferencemesh <probe|route|serve> [options]');
+      fail('usage: inferencemesh <setup|probe|route|serve> [options]');
   }
 }
 

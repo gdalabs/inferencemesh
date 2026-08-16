@@ -28,6 +28,8 @@ interface HealthRecord {
   openCount: number;
   /** Exponentially weighted mean latency, ms. Null until the first sample. */
   ewmaMs: number | null;
+  attempts: number;
+  successes: number;
 }
 
 export class HealthTracker {
@@ -50,7 +52,7 @@ export class HealthTracker {
   private rec(key: string): HealthRecord {
     let r = this.records.get(key);
     if (!r) {
-      r = { consecutiveFailures: 0, openUntil: 0, openCount: 0, ewmaMs: null };
+      r = { consecutiveFailures: 0, openUntil: 0, openCount: 0, ewmaMs: null, attempts: 0, successes: 0 };
       this.records.set(key, r);
     }
     return r;
@@ -69,8 +71,27 @@ export class HealthTracker {
     return this.rec(key).ewmaMs;
   }
 
+  /** How many times this candidate has been tried. 0 means never measured. */
+  attempts(key: string): number {
+    return this.rec(key).attempts;
+  }
+
+  /**
+   * Observed success rate, or null when never tried.
+   *
+   * This matters far more once a registry is generated rather than curated: if
+   * every model carries the same neutral quality score, "does it actually
+   * answer" is most of what is left to rank on.
+   */
+  successRate(key: string): number | null {
+    const r = this.rec(key);
+    return r.attempts === 0 ? null : r.successes / r.attempts;
+  }
+
   success(key: string, latencyMs: number): void {
     const r = this.rec(key);
+    r.attempts += 1;
+    r.successes += 1;
     r.consecutiveFailures = 0;
     r.openUntil = 0;
     r.openCount = 0;
@@ -86,6 +107,7 @@ export class HealthTracker {
    */
   failure(key: string, retryAfterMs?: number): void {
     const r = this.rec(key);
+    r.attempts += 1;
     r.consecutiveFailures += 1;
     if (retryAfterMs !== undefined && retryAfterMs > 0) {
       r.openUntil = Math.max(r.openUntil, this.now() + retryAfterMs);
@@ -99,10 +121,22 @@ export class HealthTracker {
     }
   }
 
-  snapshot(): Record<string, { open: boolean; openForMs: number; ewmaMs: number | null }> {
-    const out: Record<string, { open: boolean; openForMs: number; ewmaMs: number | null }> = {};
+  snapshot(): Record<
+    string,
+    { open: boolean; openForMs: number; ewmaMs: number | null; attempts: number; successRate: number | null }
+  > {
+    const out: Record<
+      string,
+      { open: boolean; openForMs: number; ewmaMs: number | null; attempts: number; successRate: number | null }
+    > = {};
     for (const [key] of this.records) {
-      out[key] = { open: this.isOpen(key), openForMs: this.openFor(key), ewmaMs: this.latencyMs(key) };
+      out[key] = {
+        open: this.isOpen(key),
+        openForMs: this.openFor(key),
+        ewmaMs: this.latencyMs(key),
+        attempts: this.attempts(key),
+        successRate: this.successRate(key),
+      };
     }
     return out;
   }

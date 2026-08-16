@@ -26,13 +26,51 @@ POST /v1/chat/completions   { "model": "mesh/free", "messages": [...] }
 
 ---
 
+## Start with no key and no signup
+
+```sh
+INFERENCEMESH_TOKENS=$(openssl rand -hex 32) docker compose up
+```
+
+That is the whole setup. With **no provider keys at all** the mesh still routes,
+because some providers run an open free tier — verified end to end: a container
+started with an empty environment answers a real chat request.
+
+```sh
+curl localhost:8910/v1/chat/completions \
+  -H "authorization: Bearer $INFERENCEMESH_TOKENS" \
+  -H 'content-type: application/json' \
+  -d '{"model":"mesh/free","messages":[{"role":"user","content":"hello"}]}'
+```
+
+Adding keys makes it better, and `inferencemesh setup` walks you through it:
+it says what each provider gives you, prints the page to get the key, and
+**verifies the key with a real request before saving it** — because "Saved!"
+is not reassurance when a mistyped key saves just as happily as a working one.
+
+### What a free tier actually costs
+
+Free is a trade, and the terms are rarely spelled out. `setup` prints these
+before it asks for anything:
+
+- **Your prompts may train the provider's models.** Do not send private,
+  medical, or other people's personal data.
+- **Never ship the key to a browser or a phone app.** Keep it behind a server;
+  this gateway is that server.
+- **No uptime promise.** Free tiers get withdrawn without notice.
+- **Some free models say their reasoning out loud** ("The user asks…"). That is
+  the model, not a bug in your code.
+- **This gateway never falls back to a paid model.** Exhausted free tiers return
+  an error, so a mistake cannot turn into a bill.
+
 ## Install
 
 ```sh
 npm install inferencemesh
 ```
 
-Node 20 or newer. There is no runtime dependency to audit.
+Node 20 or newer. There is no runtime dependency to audit — the container image
+contains the compiled output and nothing else.
 
 ## Use as a library
 

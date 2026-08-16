@@ -25,19 +25,19 @@ export const DEFAULT_PROFILES: Record<string, MeshProfile> = {
   free: {
     name: 'free',
     freeOnly: true,
-    weights: { quality: 0.55, cost: 0.0, latency: 0.15, language: 0.3 },
+    weights: { quality: 0.4, cost: 0.0, latency: 0.2, language: 0.2, reliability: 0.2 },
   },
   cheap: {
     name: 'cheap',
-    weights: { quality: 0.25, cost: 0.5, latency: 0.05, language: 0.2 },
+    weights: { quality: 0.2, cost: 0.45, latency: 0.05, language: 0.15, reliability: 0.15 },
   },
   fast: {
     name: 'fast',
-    weights: { quality: 0.2, cost: 0.1, latency: 0.55, language: 0.15 },
+    weights: { quality: 0.15, cost: 0.1, latency: 0.45, language: 0.1, reliability: 0.2 },
   },
   best: {
     name: 'best',
-    weights: { quality: 0.6, cost: 0.0, latency: 0.05, language: 0.35 },
+    weights: { quality: 0.5, cost: 0.0, latency: 0.05, language: 0.3, reliability: 0.15 },
   },
   /**
    * `private` is not a weighting — it is a filter. The privacy floor is applied
@@ -46,17 +46,17 @@ export const DEFAULT_PROFILES: Record<string, MeshProfile> = {
    */
   private: {
     name: 'private',
-    weights: { quality: 0.6, cost: 0.1, latency: 0.1, language: 0.2 },
+    weights: { quality: 0.5, cost: 0.1, latency: 0.1, language: 0.15, reliability: 0.15 },
   },
   coding: {
     name: 'coding',
     requireCapabilities: ['code'],
-    weights: { quality: 0.6, cost: 0.2, latency: 0.1, language: 0.1 },
+    weights: { quality: 0.5, cost: 0.15, latency: 0.1, language: 0.1, reliability: 0.15 },
   },
   vision: {
     name: 'vision',
     requireCapabilities: ['vision'],
-    weights: { quality: 0.5, cost: 0.2, latency: 0.1, language: 0.2 },
+    weights: { quality: 0.4, cost: 0.15, latency: 0.1, language: 0.15, reliability: 0.2 },
   },
 };
 

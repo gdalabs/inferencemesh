@@ -1,0 +1,47 @@
+# docker compose up  —  a free-inference gateway on http://127.0.0.1:8910
+#
+# Publishing as 127.0.0.1:8910 is deliberate. "8910:8910" would bind every
+# interface, which on a machine with a VPN or a tailnet means an unauthenticated
+# LLM relay reachable by other people — someone else's free inference budget,
+# spent on your quota.
+
+services:
+  gateway:
+    build: .
+    image: inferencemesh:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8910:8910"
+    environment:
+      # Fail-closed: the server refuses to start if this is empty.
+      #   INFERENCEMESH_TOKENS=$(openssl rand -hex 32) docker compose up
+      INFERENCEMESH_TOKENS: ${INFERENCEMESH_TOKENS:?set INFERENCEMESH_TOKENS, e.g. INFERENCEMESH_TOKENS=$(openssl rand -hex 32)}
+      # Browser origins allowed to call this directly. Empty = no CORS headers.
+      INFERENCEMESH_ALLOWED_ORIGINS: ${INFERENCEMESH_ALLOWED_ORIGINS:-}
+      # BYOK. Every one of these is optional; providers without a key are
+      # skipped and named in /healthz. With none set at all, the keyless
+      # providers still answer.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      MODELSCOPE_API_KEY: ${MODELSCOPE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OVH_AI_TOKEN: ${OVH_AI_TOKEN:-}
+      LLM7_API_KEY: ${LLM7_API_KEY:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+    volumes:
+      # Quota counters survive a restart. Without this the daily free-tier
+      # ledger resets every deploy and starts over-spending against caps.
+      - ledger:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  ledger:
