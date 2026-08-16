@@ -47,7 +47,17 @@ async function cmdProbe(argv: string[]): Promise<number> {
   const json = argv.includes('--json');
   const mesh = new InferenceMesh({ registry, timeoutMs: 30_000, maxAttempts: 1 });
 
-  const results: Array<{ key: string; ok: boolean; ms: number; detail: string }> = [];
+  /**
+   * A 429 is not the same finding as a 404.
+   *
+   * "This model id no longer exists" is rot and needs a human. "You are over
+   * the free tier's rate limit right now" is the free tier working as designed,
+   * and alerting on it every night is how a monitor teaches you to ignore it.
+   * They are reported separately and only the first sets the exit code.
+   */
+  type Verdict = 'ok' | 'limited' | 'broken';
+  const results: Array<{ key: string; verdict: Verdict; status?: number; ms: number; detail: string }> = [];
+
   for (const c of registry.candidates) {
     if (only && c.provider.id !== only) continue;
     const t0 = Date.now();
@@ -61,33 +71,49 @@ async function cmdProbe(argv: string[]): Promise<number> {
       const text = res.choices[0]?.message.content;
       results.push({
         key: c.key,
-        ok: true,
+        verdict: 'ok',
         ms: Date.now() - t0,
         detail: typeof text === 'string' ? text.slice(0, 40).replace(/\s+/g, ' ') : '',
       });
     } catch (err) {
-      const status = err instanceof ProviderError ? err.status : undefined;
-      // A mesh-level failure wraps the provider status in its message already.
+      const message = err instanceof Error ? err.message : String(err);
+      // maxAttempts is 1, so the mesh error wraps exactly one provider status.
+      const status =
+        err instanceof ProviderError ? err.status : Number(message.match(/\((\d{3}):/)?.[1]) || undefined;
       results.push({
         key: c.key,
-        ok: false,
+        verdict: status === 429 ? 'limited' : 'broken',
+        ...(status ? { status } : {}),
         ms: Date.now() - t0,
-        detail: `${status ?? ''} ${err instanceof Error ? err.message : String(err)}`.trim().slice(0, 160),
+        detail: message.replace(/^all 1 attempt\(s\) failed: \S+ /, '').slice(0, 160),
       });
     }
   }
 
+  const broken = results.filter((r) => r.verdict === 'broken');
+  const limited = results.filter((r) => r.verdict === 'limited');
+
   if (json) {
-    console.log(JSON.stringify({ probedAt: new Date().toISOString(), results }, null, 2));
+    console.log(
+      JSON.stringify(
+        { probedAt: new Date().toISOString(), ok: broken.length === 0, results },
+        null,
+        2,
+      ),
+    );
   } else {
+    const label = { ok: 'ok   ', limited: 'limit', broken: 'BROKE' } as const;
     for (const r of results) {
-      console.log(`${r.ok ? 'ok  ' : 'FAIL'}  ${r.key.padEnd(48)} ${String(r.ms).padStart(6)}ms  ${r.detail}`);
+      console.log(`${label[r.verdict]} ${r.key.padEnd(48)} ${String(r.ms).padStart(6)}ms  ${r.detail}`);
     }
-    const okCount = results.filter((r) => r.ok).length;
-    console.log(`\n${okCount}/${results.length} candidates reachable`);
+    console.log(
+      `\n${results.length - broken.length - limited.length}/${results.length} reachable` +
+        (limited.length ? `, ${limited.length} rate-limited (not a fault)` : '') +
+        (broken.length ? `, ${broken.length} BROKEN` : ''),
+    );
   }
-  // Non-zero when anything is broken, so a scheduler can alert on it.
-  return results.every((r) => r.ok) ? 0 : 1;
+  // Only rot sets the exit code. Being rate limited is the free tier working.
+  return broken.length === 0 ? 0 : 1;
 }
 
 async function cmdRoute(argv: string[]): Promise<number> {

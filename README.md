@@ -163,9 +163,13 @@ Model ids and free tiers **do** rot, silently, and the first symptom is a user w
 Turn that into an exit code:
 
 ```sh
-inferencemesh probe            # calls every candidate once; non-zero if any fail
+inferencemesh probe            # calls every candidate once
 inferencemesh probe --json     # for a scheduler
 ```
+
+`probe` separates two findings that look alike and are not: a `404`/`400` means the id is gone and
+needs a human (`BROKE`, exit 1), while a `429` means the free tier is working as designed
+(`limit`, exit 0). Alerting on the second every night is how a monitor teaches you to ignore it.
 
 `quality` and `languages` scores are hand-maintained relative estimates, not benchmark results.
 They only have to order *your* registry correctly.
@@ -173,7 +177,7 @@ They only have to order *your* registry correctly.
 ## Development
 
 ```sh
-npm test        # builds, then runs the suite (82 tests, no network)
+npm test        # builds, then runs the suite (83 tests, no network)
 npm run build
 ```
 
