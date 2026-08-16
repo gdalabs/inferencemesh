@@ -951,10 +951,11 @@
         {
           "id": "minimax-m2.7",
           "label": "MiniMax M2.7 (LLM7, keyless)",
-          "$comment": "2026-08-16 にキー無しで応答を実測",
+          "$comment": "2026-08-16 にキー無しで応答を実測。tool_calls を正しく返すことも実測済み（＝鍵ゼロでもエージェントが動く）",
           "capabilities": [
             "text",
             "code",
+            "tools",
             "json"
           ],
           "contextWindow": 204800,
