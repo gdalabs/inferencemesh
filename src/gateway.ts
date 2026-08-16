@@ -9,8 +9,26 @@
  */
 
 import { InferenceMesh } from './mesh.js';
-import { blendedPrice, maxPrivacyOf } from './registry.js';
-import { MeshError, NoCandidateError, type ChatRequest } from './types.js';
+import { Registry, blendedPrice, maxPrivacyOf } from './registry.js';
+import { SETUP_HTML } from './setup-ui.js';
+import { MeshError, NoCandidateError, type ChatRequest, type ProviderConfig } from './types.js';
+
+/**
+ * How the gateway persists a key it has just verified.
+ *
+ * Kept as an injected interface so this file never touches a filesystem and
+ * still runs in a Worker — and so the only code that can read a stored key is
+ * the code that wrote it. Note there is deliberately no `get`: nothing in the
+ * HTTP surface can return a key back to a client, which is the one guarantee
+ * the setup page makes to the person pasting it.
+ */
+export interface KeyStore {
+  save(entries: Record<string, string>): Promise<void>;
+  /** Rebuild a registry from config plus every key known so far. */
+  reload(): Promise<Registry>;
+  /** Raw provider config, including setup metadata the Registry drops. */
+  providerConfigs(): ProviderConfig[];
+}
 
 export interface GatewayOptions {
   mesh: InferenceMesh;
@@ -23,6 +41,8 @@ export interface GatewayOptions {
   allowedOrigins?: string[];
   /** Expose /healthz without a token. Off by default. */
   publicHealth?: boolean;
+  /** Enables /setup and the key endpoints. Omit to disable setup entirely. */
+  keyStore?: KeyStore;
 }
 
 function cors(origin: string | null, allowed: string[] | undefined): Record<string, string> {
@@ -71,6 +91,27 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: ch });
 
+  if (url.pathname === '/setup' && req.method === 'GET') {
+    // Served without a token on purpose. The token travels in the URL
+    // fragment, and a browser never sends the fragment to the server — so
+    // requiring auth for the page itself makes it impossible to ever open.
+    // The page is static and holds no secrets; every endpoint it calls is
+    // still authenticated.
+    return new Response(SETUP_HTML, {
+      status: 200,
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        // Nothing external loads, so forbid it outright: a setup page that
+        // handles API keys must not be able to fetch a third-party script.
+        'content-security-policy':
+          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'",
+        'referrer-policy': 'no-referrer',
+        ...ch,
+      },
+    });
+  }
+
   const isHealth = url.pathname === '/healthz';
   if (!(isHealth && opts.publicHealth) && !authorized(req, opts.tokens)) {
     return json(errorBody('missing or invalid bearer token', 'unauthorized'), 401, ch);
@@ -86,6 +127,76 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
         health: opts.mesh.health.snapshot(),
         quota: await opts.mesh.ledger.snapshot(),
       },
+      200,
+      ch,
+    );
+  }
+
+  if (url.pathname === '/v1/providers' && req.method === 'GET' && opts.keyStore) {
+    const loaded = new Set(opts.mesh.registry.providers.map((p) => p.id));
+    const providers = opts.keyStore.providerConfigs().map((p) => ({
+      id: p.id,
+      summary: p.summary,
+      freeTierNote: p.freeTierNote,
+      signupUrl: p.signupUrl,
+      signupSteps: p.signupSteps,
+      keyPrefix: p.keyPrefix,
+      accountIdEnv: p.accountIdEnv,
+      keyless: Boolean(p.apiKeyOptional),
+      // Whether a key is present — never the key itself.
+      configured: loaded.has(p.id) && !p.apiKeyOptional,
+      models: p.models.length,
+    }));
+    return json(
+      {
+        providers,
+        candidates: opts.mesh.registry.candidates.length,
+        usable: opts.mesh.registry.providers.map((p) => p.id),
+      },
+      200,
+      ch,
+    );
+  }
+
+  if (url.pathname === '/v1/keys' && req.method === 'POST' && opts.keyStore) {
+    let body: { providerId?: string; key?: string; accountId?: string };
+    try {
+      body = (await req.json()) as typeof body;
+    } catch {
+      return json(errorBody('request body is not valid JSON', 'invalid_request'), 400, ch);
+    }
+    const cfg = opts.keyStore.providerConfigs().find((p) => p.id === body.providerId);
+    if (!cfg || !body.key) {
+      return json(errorBody('unknown providerId, or no key given', 'invalid_request'), 400, ch);
+    }
+
+    // Verify before saving. A mistyped key persists exactly as happily as a
+    // working one and then fails later somewhere else.
+    const env: Record<string, string> = { [cfg.apiKeyEnv]: body.key };
+    if (cfg.accountIdEnv && body.accountId) env[cfg.accountIdEnv] = body.accountId;
+    const probe = new Registry([cfg], { env });
+    const candidate = probe.candidates[0];
+    if (!candidate) {
+      return json({ ok: false, why: `missing ${cfg.accountIdEnv ?? cfg.apiKeyEnv}` }, 200, ch);
+    }
+    const trial = new InferenceMesh({ registry: probe, maxAttempts: 1, timeoutMs: 30_000 });
+    const t0 = Date.now();
+    try {
+      await trial.chat({
+        model: candidate.key,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+        temperature: 0,
+      });
+    } catch (err) {
+      const why = (err instanceof Error ? err.message : String(err)).slice(0, 200);
+      return json({ ok: false, why }, 200, ch);
+    }
+
+    await opts.keyStore.save(env);
+    opts.mesh.reload(await opts.keyStore.reload());
+    return json(
+      { ok: true, ms: Date.now() - t0, candidates: opts.mesh.registry.candidates.length },
       200,
       ch,
     );

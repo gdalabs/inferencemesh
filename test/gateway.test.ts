@@ -5,7 +5,7 @@ import { handleRequest } from '../src/gateway.js';
 import { InferenceMesh } from '../src/mesh.js';
 import { Registry } from '../src/registry.js';
 import { QuotaLedger, MemoryStorage } from '../src/ledger.js';
-import { FIXTURE_ENV, fakeClock, fakeFetch, fixtureProviders, okChat, readAll } from './helpers.js';
+import { FIXTURE_ENV, errorResponse, fakeClock, fakeFetch, fixtureProviders, okChat, readAll } from './helpers.js';
 
 function gateway(tokens = new Set(['secret']), extra: Record<string, unknown> = {}) {
   const { fetch } = fakeFetch(() => okChat('hi'));
@@ -132,6 +132,97 @@ describe('gateway — discovery', () => {
       body.warnings.map((w) => w.providerId).sort(),
       ['beta', 'paid'],
     );
+  });
+});
+
+describe('gateway — setup and keys', () => {
+  const SECRET = 'sk-super-secret-value-12345';
+
+  function withStore() {
+    const { fetch } = fakeFetch(() => okChat('hi'));
+    const configs = fixtureProviders();
+    const saved: Record<string, string> = {};
+    const mesh = new InferenceMesh({
+      registry: new Registry(configs, { env: FIXTURE_ENV }),
+      fetchImpl: fetch,
+      ledger: new QuotaLedger(new MemoryStorage(), fakeClock().now),
+    });
+    const keyStore = {
+      async save(entries: Record<string, string>) {
+        Object.assign(saved, entries);
+      },
+      async reload() {
+        return new Registry(configs, { env: { ...FIXTURE_ENV, ...saved } });
+      },
+      providerConfigs: () => configs,
+    };
+    return {
+      saved,
+      call: (req: Request) => handleRequest(req, { mesh, tokens: new Set(['secret']), keyStore }),
+    };
+  }
+
+  const auth = { authorization: 'Bearer secret' };
+
+  test('the setup page is served without a token, because a browser cannot send one', async () => {
+    // The token lives in the URL fragment, which is never transmitted. Requiring
+    // auth for the page itself makes it impossible to open at all.
+    const res = await withStore().call(new Request('http://localhost/setup'));
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+    assert.match(res.headers.get('content-security-policy') ?? '', /default-src 'none'/);
+  });
+
+  test('the endpoints the page calls are still authenticated', async () => {
+    const g = withStore();
+    assert.equal((await g.call(new Request('http://localhost/v1/providers'))).status, 401);
+    const post = new Request('http://localhost/v1/keys', { method: 'POST', body: '{}' });
+    assert.equal((await g.call(post)).status, 401);
+  });
+
+  test('/v1/providers reports whether a key exists, never the key', async () => {
+    const g = withStore();
+    const res = await g.call(new Request('http://localhost/v1/providers', { headers: auth }));
+    const body = (await res.json()) as { providers: Array<{ id: string; configured: boolean; keyless: boolean }> };
+    const alpha = body.providers.find((p) => p.id === 'alpha');
+    assert.equal(alpha?.configured, true);
+    assert.equal(body.providers.find((p) => p.id === 'keyless')?.keyless, true);
+    // The fixture keys are in the loaded registry; none of them may appear here.
+    const text = JSON.stringify(body);
+    for (const v of Object.values(FIXTURE_ENV)) assert.equal(text.includes(v), false);
+  });
+
+  test('a key that does not work is rejected and never saved', async () => {
+    const { fetch } = fakeFetch(() => errorResponse(401, 'invalid api key'));
+    const configs = fixtureProviders();
+    const saved: Record<string, string> = {};
+    const mesh = new InferenceMesh({ registry: new Registry(configs, { env: FIXTURE_ENV }), fetchImpl: fetch });
+    // The verification path builds its own mesh with the real fetch, so this
+    // test drives it through a provider whose calls fail.
+    const res = await handleRequest(
+      new Request('http://localhost/v1/keys', {
+        method: 'POST',
+        headers: { ...auth, 'content-type': 'application/json' },
+        body: JSON.stringify({ providerId: 'alpha', key: SECRET }),
+      }),
+      {
+        mesh,
+        tokens: new Set(['secret']),
+        keyStore: {
+          async save(e: Record<string, string>) {
+            Object.assign(saved, e);
+          },
+          async reload() {
+            return new Registry(configs, { env: FIXTURE_ENV });
+          },
+          providerConfigs: () => configs,
+        },
+      },
+    );
+    const body = (await res.json()) as { ok: boolean; why?: string };
+    assert.equal(body.ok, false, 'a live call decides, not the shape of the string');
+    assert.deepEqual(saved, {}, 'nothing was written');
+    assert.equal(JSON.stringify(body).includes(SECRET), false, 'the rejected key is not echoed back');
   });
 });
 

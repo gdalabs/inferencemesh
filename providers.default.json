@@ -25,6 +25,21 @@
       "signupUrl": "https://console.groq.com/keys",
       "summary": "Llama と MiniMax M2.7 が非常に高速",
       "freeTierNote": "無料枠あり・クレジットカード不要",
+      "keyPrefix": "gsk_",
+      "signupSteps": {
+        "ja": [
+          "console.groq.com/keys を開く",
+          "Google などでログイン（無料）",
+          "「Create API Key」を押す",
+          "gsk_ で始まる文字列が一度だけ表示される。閉じると二度と見られないのでその場でコピー"
+        ],
+        "en": [
+          "Open console.groq.com/keys",
+          "Sign in (free)",
+          "Press \"Create API Key\"",
+          "Copy the gsk_… string — it is shown only once"
+        ]
+      },
       "models": [
         {
           "id": "llama-3.3-70b-versatile",
@@ -153,6 +168,21 @@
       "signupUrl": "https://aistudio.google.com/apikey",
       "summary": "Google Gemini（画像も読める・日本語が強い）",
       "freeTierNote": "無料枠あり・クレジットカード不要",
+      "keyPrefix": "AIza",
+      "signupSteps": {
+        "ja": [
+          "aistudio.google.com/apikey を開く",
+          "Googleアカウントでログイン",
+          "「APIキーを作成」を押す",
+          "AIza で始まる文字列をコピー"
+        ],
+        "en": [
+          "Open aistudio.google.com/apikey",
+          "Sign in with a Google account",
+          "Press \"Create API key\"",
+          "Copy the AIza… string"
+        ]
+      },
       "models": [
         {
           "id": "gemini-2.5-flash",
@@ -229,6 +259,21 @@
       "signupUrl": "https://build.nvidia.com/",
       "summary": "DeepSeek・Kimi・MiniMax・GLM が全部そろう",
       "freeTierNote": "無料・クレジットカード不要（NVIDIA Developer Program の登録が要る）",
+      "keyPrefix": "nvapi-",
+      "signupSteps": {
+        "ja": [
+          "build.nvidia.com を開く",
+          "右上の Login から NVIDIA アカウントを作る（無料・クレジットカード不要）",
+          "好きなモデルのページを開き、右側の「Get API Key」を押す",
+          "「Generate Key」を押すと nvapi- で始まる文字列が出る。それを丸ごとコピー"
+        ],
+        "en": [
+          "Open build.nvidia.com",
+          "Sign in / create a free NVIDIA account (no credit card)",
+          "Open any model page and press \"Get API Key\" on the right",
+          "Press \"Generate Key\" and copy the whole nvapi-… string"
+        ]
+      },
       "$comment": [
         "build.nvidia.com（NVIDIA Developer Program・クレカ不要）。/v1/models を無認証で引けるので",
         "2026-08-16 に実在を確認済み（102モデル）。DeepSeek / Kimi / MiniMax / GLM の4系統が",
@@ -390,6 +435,18 @@
       "signupUrl": "https://z.ai/manage-apikey/apikey-list",
       "summary": "GLM 本家。flash 系が無料",
       "freeTierNote": "無料枠あり（同時実行1）",
+      "signupSteps": {
+        "ja": [
+          "z.ai を開いてアカウントを作る",
+          "右上のメニューから API Keys を開く",
+          "「Create」を押して出た文字列をコピー"
+        ],
+        "en": [
+          "Create an account at z.ai",
+          "Open API Keys from the top-right menu",
+          "Press \"Create\" and copy the string"
+        ]
+      },
       "$comment": [
         "Z.ai（GLM 本家）。POST /api/paas/v4/chat/completions が 401 を返すことを実測で確認（＝実在）。",
         "flash 系（glm-4.7-flash / glm-4.5-flash / glm-4.6v-flash）が恒久無料とされる。",
@@ -499,6 +556,19 @@
       "signupUrl": "https://modelscope.cn/my/myaccesstoken",
       "summary": "DeepSeek V4 と MiniMax M3（中国本土でホスト）",
       "freeTierNote": "無料枠あり",
+      "keyPrefix": "ms-",
+      "signupSteps": {
+        "ja": [
+          "modelscope.cn でアカウントを作る（中国のサービスです）",
+          "My Page → Access Token を開く",
+          "表示されたトークンをコピー"
+        ],
+        "en": [
+          "Create an account at modelscope.cn (a Chinese service)",
+          "Open My Page → Access Token",
+          "Copy the token shown"
+        ]
+      },
       "$comment": [
         "ModelScope（Alibaba）。/v1/models を無認証で引けるので 43モデルの実在を確認済み（2026-08-16）。",
         "DeepSeek V4 Flash/Pro と MiniMax M3 が無料枠にある。",
@@ -593,6 +663,20 @@
       "signupUrl": "https://dash.cloudflare.com/profile/api-tokens",
       "summary": "Kimi K2.5 と GLM-4.7-flash",
       "freeTierNote": "無料枠は1日10,000 Neurons。大きいモデルは有料プラン専用",
+      "signupSteps": {
+        "ja": [
+          "dash.cloudflare.com にログイン",
+          "右上のプロフィール → API トークン → 「トークンを作成」",
+          "テンプレートから Workers AI を選んで作成、表示された文字列をコピー",
+          "あわせて Account ID（ダッシュボード右側に表示）も必要です"
+        ],
+        "en": [
+          "Log in to dash.cloudflare.com",
+          "Profile → API Tokens → Create Token",
+          "Use the Workers AI template and copy the token",
+          "You also need the Account ID shown on the dashboard"
+        ]
+      },
       "models": [
         {
           "id": "@cf/moonshotai/kimi-k2.5",
@@ -740,6 +824,21 @@
       "signupUrl": "https://openrouter.ai/keys",
       "summary": "多数のモデルを1つの鍵で。無料枠のモデルのみ登録済み",
       "freeTierNote": "無料モデルのみ使う限り課金なし",
+      "keyPrefix": "sk-or-v1-",
+      "signupSteps": {
+        "ja": [
+          "openrouter.ai/keys を開く",
+          "Google などでログイン（無料・クレジットカード不要）",
+          "「Create Key」を押す",
+          "sk-or-v1- で始まる文字列をコピー。※無料モデルだけを使う限り課金されません"
+        ],
+        "en": [
+          "Open openrouter.ai/keys",
+          "Sign in (free, no credit card)",
+          "Press \"Create Key\"",
+          "Copy the sk-or-v1-… string. Free models stay free"
+        ]
+      },
       "headers": {
         "X-Title": "InferenceMesh"
       },
@@ -870,6 +969,18 @@
       "signupUrl": "https://endpoints.ai.cloud.ovh.net/",
       "summary": "Qwen 系（EU・フランスでホスト）",
       "freeTierNote": "無料枠あり",
+      "signupSteps": {
+        "ja": [
+          "endpoints.ai.cloud.ovh.net を開く",
+          "OVHcloud アカウントを作ってログイン（EU・フランスのサービス）",
+          "API keys のページでトークンを作成してコピー"
+        ],
+        "en": [
+          "Open endpoints.ai.cloud.ovh.net",
+          "Create an OVHcloud account (EU/France)",
+          "Create a token on the API keys page and copy it"
+        ]
+      },
       "$comment": [
         "OVHcloud AI Endpoints（EU・フランス）。/v1/models を無認証で引けて20モデルの実在を確認（2026-08-16）。",
         "DeepSeek/Kimi/MiniMax は無いが Qwen が厚い。**EU圏でホストされている**点が他と違うので、",
@@ -938,6 +1049,14 @@
       "signupUrl": "https://token.llm7.io/",
       "summary": "登録しなくても使える。鍵を入れると使えるモデルが増える",
       "freeTierNote": "完全無料・鍵なしでも動く",
+      "signupSteps": {
+        "ja": [
+          "鍵なしでもう動いています。より多くのモデルを使いたい場合のみ token.llm7.io で無料トークンを取得してください"
+        ],
+        "en": [
+          "Already working without a key. Only get a free token at token.llm7.io if you want more models"
+        ]
+      },
       "$comment": [
         "🔴 このプロバイダは API キー無しで動く（2026-08-16 に minimax-m2.7 で実測。usage 付きの本物の応答）。",
         "サインアップ不要なので『サイト訪問者に無料AI体験を出す』用途に直接使える唯一の経路。",

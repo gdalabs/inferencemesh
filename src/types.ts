@@ -123,6 +123,22 @@ export interface ProviderConfig {
   summary?: string;
   /** Shown during setup: what it costs and what the free tier allows. */
   freeTierNote?: string;
+  /**
+   * What the key looks like, e.g. 'nvapi-'. Used for an instant client-side
+   * sanity check so someone who copied the wrong string off the page is told
+   * so before a network call, and so the UI can show what to look for.
+   * A missing prefix means "no recognisable shape" — never treat that as invalid.
+   */
+  keyPrefix?: string;
+  /**
+   * Click-by-click steps to obtain the key, per language.
+   *
+   * This is the actual product. "Set NVIDIA_API_KEY" assumes you already know
+   * the page exists, what to click on it, and which of the several strings on
+   * the result screen is the one to copy — which is exactly the knowledge that
+   * is missing.
+   */
+  signupSteps?: Record<string, string[]>;
   /** Extra headers merged into every request (e.g. OpenRouter attribution). */
   headers?: Record<string, string>;
   models: ModelEntry[];

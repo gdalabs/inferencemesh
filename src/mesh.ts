@@ -121,10 +121,10 @@ export interface StreamResult {
 }
 
 export class InferenceMesh {
-  readonly registry: Registry;
+  private _registry: Registry;
   readonly ledger: QuotaLedger;
   readonly health: HealthTracker;
-  private readonly router: Router;
+  private _router: Router;
   private readonly adapters: Record<string, Adapter>;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
@@ -132,10 +132,10 @@ export class InferenceMesh {
   private readonly onEvent: (e: MeshEvent) => void;
 
   constructor(opts: MeshOptions) {
-    this.registry = opts.registry;
+    this._registry = opts.registry;
     this.ledger = opts.ledger ?? new QuotaLedger();
     this.health = opts.health ?? new HealthTracker();
-    this.router = new Router(this.registry, { health: this.health });
+    this._router = new Router(this._registry, { health: this.health });
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
     this.timeoutMs = opts.timeoutMs ?? 60_000;
     this.maxAttempts = opts.maxAttempts ?? 4;
@@ -145,6 +145,28 @@ export class InferenceMesh {
       'workers-ai': new OpenAICompatAdapter(),
       gemini: new GeminiAdapter(),
     };
+  }
+
+  get registry(): Registry {
+    return this._registry;
+  }
+
+  private get router(): Router {
+    return this._router;
+  }
+
+  /**
+   * Swap in a freshly loaded registry without restarting.
+   *
+   * Needed because keys arrive *after* the process starts — someone adds one
+   * through the setup UI and expects it to work now, not after they figure out
+   * how to restart a container. Health and quota carry over deliberately: a
+   * provider that was rate limited a second ago is still rate limited, and
+   * forgetting that on every key addition would walk straight into a 429.
+   */
+  reload(registry: Registry): void {
+    this._registry = registry;
+    this._router = new Router(registry, { health: this.health });
   }
 
   private routeFor(req: ChatRequest): RouteRequest {

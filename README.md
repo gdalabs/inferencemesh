@@ -43,7 +43,23 @@ curl localhost:8910/v1/chat/completions \
   -d '{"model":"mesh/free","messages":[{"role":"user","content":"hello"}]}'
 ```
 
-Adding keys makes it better, and `inferencemesh setup` walks you through it:
+Adding keys makes it better. Open the setup page — the URL with the token is
+printed at startup:
+
+```
+[inferencemesh] add keys here: http://127.0.0.1:8910/setup#<token>
+```
+
+It lists every provider with what it gives you, **click-by-click steps to get the
+key**, what the key looks like (`nvapi-…`), a paste box, and a live check. A
+verified key takes effect immediately; nothing restarts.
+
+**Your keys stay on your machine.** There is no hosted component. A key goes to
+exactly two places: a `600` file in your own volume, and the provider it belongs
+to. No endpoint can return a stored key — `/v1/providers` reports only whether one
+is present — and none of it is logged. That is enforced by tests, not just stated.
+
+`inferencemesh setup` does the same thing from a terminal:
 it says what each provider gives you, prints the page to get the key, and
 **verifies the key with a real request before saving it** — because "Saved!"
 is not reassurance when a mistyped key saves just as happily as a working one.

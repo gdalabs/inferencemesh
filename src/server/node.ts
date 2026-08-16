@@ -15,10 +15,12 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { handleRequest } from '../gateway.js';
+import { handleRequest, type KeyStore } from '../gateway.js';
 import { InferenceMesh } from '../mesh.js';
 import { QuotaLedger, type LedgerRecord, type LedgerStorage } from '../ledger.js';
 import { registryFrom } from '../config.js';
+import type { ProviderConfig } from '../types.js';
+import { mergeEnv } from '../setup.js';
 
 /** Ledger persistence via an atomic file write, so a crash cannot truncate it. */
 export class FileStorage implements LedgerStorage {
@@ -52,6 +54,66 @@ export class FileStorage implements LedgerStorage {
  * changes — which it already did once, silently, because nothing imports this
  * path at compile time.
  */
+/**
+ * Keys added through the setup UI, kept in the user's own volume.
+ *
+ * They are written to a file the process can read back and never exposed
+ * through HTTP. On a self-hosted install this is the whole privacy story:
+ * there is no server-side component anywhere else, so a key reaches exactly
+ * two places — this file, and the provider it belongs to.
+ */
+export class FileKeyStore implements KeyStore {
+  private extra: Record<string, string> = {};
+
+  constructor(
+    private readonly keysPath: string,
+    private readonly registryPath: string,
+    private readonly baseEnv: NodeJS.ProcessEnv,
+  ) {}
+
+  async init(): Promise<void> {
+    try {
+      const raw = await readFile(this.keysPath, 'utf8');
+      for (const line of raw.split('\n')) {
+        const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+        if (m) this.extra[m[1] as string] = m[2] as string;
+      }
+    } catch {
+      /* no keys saved yet */
+    }
+  }
+
+  env(): Record<string, string | undefined> {
+    return { ...this.baseEnv, ...this.extra };
+  }
+
+  async save(entries: Record<string, string>): Promise<void> {
+    this.extra = { ...this.extra, ...entries };
+    let existing = '';
+    try {
+      existing = await readFile(this.keysPath, 'utf8');
+    } catch {
+      /* first key */
+    }
+    await mkdir(dirname(this.keysPath), { recursive: true });
+    const tmp = `${this.keysPath}.tmp`;
+    await writeFile(tmp, mergeEnv(existing, entries), { mode: 0o600 });
+    await rename(tmp, this.keysPath);
+  }
+
+  providerConfigs(): ProviderConfig[] {
+    return this.configs;
+  }
+
+  private configs: ProviderConfig[] = [];
+
+  async reload(): Promise<ReturnType<typeof registryFrom>> {
+    const raw = JSON.parse(await readFile(this.registryPath, 'utf8')) as { providers: ProviderConfig[] };
+    this.configs = raw.providers;
+    return registryFrom(raw, { env: this.env() });
+  }
+}
+
 function defaultRegistryPath(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 6; i++) {
@@ -105,6 +167,7 @@ export interface ServerConfig {
   tokens: Set<string>;
   registryPath: string;
   ledgerPath: string;
+  keysPath: string;
   allowedOrigins: string[];
   publicHealth: boolean;
 }
@@ -122,6 +185,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     tokens,
     registryPath: env['INFERENCEMESH_REGISTRY'] ?? defaultRegistryPath(),
     ledgerPath: env['INFERENCEMESH_LEDGER'] ?? resolve(process.cwd(), '.inferencemesh/ledger.json'),
+    keysPath: env['INFERENCEMESH_KEYS'] ?? resolve(process.cwd(), '.inferencemesh/keys.env'),
     allowedOrigins: (env['INFERENCEMESH_ALLOWED_ORIGINS'] ?? '')
       .split(',')
       .map((o) => o.trim())
@@ -130,22 +194,24 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
   };
 }
 
-export async function buildMesh(cfg: ServerConfig): Promise<InferenceMesh> {
-  const raw = JSON.parse(await readFile(cfg.registryPath, 'utf8')) as unknown;
-  const registry = registryFrom(raw);
+export async function buildMesh(cfg: ServerConfig): Promise<{ mesh: InferenceMesh; keyStore: FileKeyStore }> {
+  const keyStore = new FileKeyStore(cfg.keysPath, cfg.registryPath, process.env);
+  await keyStore.init();
+  const registry = await keyStore.reload();
   for (const w of registry.warnings) {
     console.warn(`[inferencemesh] provider '${w.providerId}' skipped: ${w.reason}`);
   }
+  // No longer fatal: with zero keys the keyless providers still answer, and the
+  // setup page exists precisely to be opened when nothing is configured yet.
   if (registry.candidates.length === 0) {
-    throw new Error(
-      'no usable providers: every provider was skipped. Set at least one API key ' +
-        '(see the warnings above) before starting the gateway.',
+    console.warn(
+      '[inferencemesh] no usable providers yet — open /setup to add a key.',
     );
   }
-  return new InferenceMesh({
-    registry,
-    ledger: new QuotaLedger(new FileStorage(cfg.ledgerPath)),
-  });
+  return {
+    mesh: new InferenceMesh({ registry, ledger: new QuotaLedger(new FileStorage(cfg.ledgerPath)) }),
+    keyStore,
+  };
 }
 
 export async function main(): Promise<void> {
@@ -166,7 +232,7 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const mesh = await buildMesh(cfg);
+  const { mesh, keyStore } = await buildMesh(cfg);
   const server = createServer((req, res) => {
     void (async () => {
       try {
@@ -176,6 +242,7 @@ export async function main(): Promise<void> {
           tokens: cfg.tokens,
           allowedOrigins: cfg.allowedOrigins,
           publicHealth: cfg.publicHealth,
+          keyStore,
         });
         await writeFetchResponse(res, out);
       } catch (err) {
@@ -187,10 +254,14 @@ export async function main(): Promise<void> {
   });
 
   server.listen(cfg.port, cfg.host, () => {
+    const first = [...cfg.tokens][0] as string;
     console.log(
       `[inferencemesh] listening on http://${cfg.host}:${cfg.port} ` +
         `— ${mesh.registry.candidates.length} candidates from ${mesh.registry.providers.length} provider(s)`,
     );
+    // The token rides in the fragment: it is never sent to the server and never
+    // reaches an access log, unlike a query string.
+    console.log(`[inferencemesh] add keys here: http://127.0.0.1:${cfg.port}/setup#${first}`);
   });
 
   const shutdown = () => {
