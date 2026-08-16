@@ -1,0 +1,63 @@
+{
+  "$comment": [
+    "Template for a registry that includes PAID models.",
+    "",
+    "Every non-zero price must carry `priceVerifiedAt` (YYYY-MM-DD) or the file is",
+    "rejected at load time. This is enforced, not advisory: a stale price does not",
+    "fail loudly, it silently reorders the `cheap` profile, and you find out from",
+    "the invoice. Open the provider's pricing page, copy the numbers, stamp the date.",
+    "",
+    "The prices below are ZEROED ON PURPOSE so this file cannot be used as-is and",
+    "cannot pretend to be a price list. Fill them in yourself.",
+    "",
+    "Privacy tiers are yours to assign and are the one filter routing will never",
+    "override. Give a provider `internal` unless you have actually read its data",
+    "retention terms; give it `confidential` only if you have a DPA saying so."
+  ],
+  "defaultProfile": "cheap",
+  "profiles": {
+    "cheap": {
+      "name": "cheap",
+      "maxPricePerMTok": 1.0,
+      "weights": { "quality": 0.25, "cost": 0.5, "latency": 0.05, "language": 0.2 }
+    }
+  },
+  "providers": [
+    {
+      "id": "deepseek",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "maxPrivacy": "internal",
+      "models": [
+        {
+          "id": "deepseek-chat",
+          "capabilities": ["text", "code", "tools", "json"],
+          "contextWindow": 131072,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "priceVerifiedAt": "REPLACE-WITH-THE-DATE-YOU-CHECKED",
+          "quality": 0.8,
+          "languages": { "en": 0.9, "ja": 0.82, "zh": 0.95, "*": 0.7 }
+        }
+      ]
+    },
+    {
+      "id": "selfhosted",
+      "kind": "openai-compat",
+      "baseUrl": "http://127.0.0.1:8000/v1",
+      "apiKeyEnv": "LOCAL_LLM_KEY",
+      "$comment": "vLLM / llama.cpp / Ollama. The only tier that can honestly be 'highly_confidential', because the bytes never leave the box.",
+      "maxPrivacy": "highly_confidential",
+      "models": [
+        {
+          "id": "qwen3-30b-local",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 32768,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.6,
+          "languages": { "en": 0.85, "ja": 0.8, "zh": 0.9, "*": 0.65 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+/**
+ * Provider registry: config in, validated candidates out.
+ *
+ * Loading is where BYOK is enforced. A provider whose API key is missing is
+ * dropped — but *loudly*, into `warnings`, because "no candidates" caused by a
+ * typo'd env var name is otherwise indistinguishable from "everything is rate
+ * limited", and both surface as a 503 at 3am.
+ */
+
+import {
+  PRIVACY_ORDER,
+  type Candidate,
+  type Capability,
+  type LanguageTag,
+  type MeshProfile,
+  type ModelEntry,
+  type PrivacyLevel,
+  type ProviderConfig,
+} from './types.js';
+
+/** Score used for a language the registry says nothing about. */
+export const DEFAULT_LANGUAGE_SCORE = 0.6;
+
+export const DEFAULT_PROFILES: Record<string, MeshProfile> = {
+  free: {
+    name: 'free',
+    freeOnly: true,
+    weights: { quality: 0.55, cost: 0.0, latency: 0.15, language: 0.3 },
+  },
+  cheap: {
+    name: 'cheap',
+    weights: { quality: 0.25, cost: 0.5, latency: 0.05, language: 0.2 },
+  },
+  fast: {
+    name: 'fast',
+    weights: { quality: 0.2, cost: 0.1, latency: 0.55, language: 0.15 },
+  },
+  best: {
+    name: 'best',
+    weights: { quality: 0.6, cost: 0.0, latency: 0.05, language: 0.35 },
+  },
+  /**
+   * `private` is not a weighting — it is a filter. The privacy floor is applied
+   * from the request's `privacy` field, so this profile only exists to make the
+   * intent explicit at the call site and to stop free tiers winning by price.
+   */
+  private: {
+    name: 'private',
+    weights: { quality: 0.6, cost: 0.1, latency: 0.1, language: 0.2 },
+  },
+  coding: {
+    name: 'coding',
+    requireCapabilities: ['code'],
+    weights: { quality: 0.6, cost: 0.2, latency: 0.1, language: 0.1 },
+  },
+  vision: {
+    name: 'vision',
+    requireCapabilities: ['vision'],
+    weights: { quality: 0.5, cost: 0.2, latency: 0.1, language: 0.2 },
+  },
+};
+
+export interface RegistryOptions {
+  /** Environment to resolve `apiKeyEnv` against. Defaults to process.env. */
+  env?: Record<string, string | undefined>;
+  profiles?: Record<string, MeshProfile>;
+  defaultProfile?: string;
+}
+
+export interface LoadWarning {
+  providerId: string;
+  reason: string;
+}
+
+export class Registry {
+  readonly providers: ProviderConfig[];
+  readonly candidates: Candidate[];
+  readonly warnings: LoadWarning[];
+  readonly profiles: Record<string, MeshProfile>;
+  readonly defaultProfile: string;
+  private readonly keys = new Map<string, string>();
+  private readonly accountIds = new Map<string, string>();
+
+  constructor(configs: ProviderConfig[], opts: RegistryOptions = {}) {
+    const env = opts.env ?? (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+    this.profiles = { ...DEFAULT_PROFILES, ...(opts.profiles ?? {}) };
+    this.defaultProfile = opts.defaultProfile ?? 'free';
+    if (!this.profiles[this.defaultProfile]) {
+      throw new Error(`default profile '${this.defaultProfile}' is not defined`);
+    }
+
+    this.warnings = [];
+    this.providers = [];
+
+    for (const p of configs) {
+      if (p.disabled) {
+        this.warnings.push({ providerId: p.id, reason: 'disabled in config' });
+        continue;
+      }
+      const key = env[p.apiKeyEnv];
+      if (!key) {
+        this.warnings.push({ providerId: p.id, reason: `missing env ${p.apiKeyEnv}` });
+        continue;
+      }
+      if (p.accountIdEnv) {
+        const account = env[p.accountIdEnv];
+        if (!account) {
+          this.warnings.push({ providerId: p.id, reason: `missing env ${p.accountIdEnv}` });
+          continue;
+        }
+        this.accountIds.set(p.id, account);
+      }
+      this.keys.set(p.id, key);
+      this.providers.push(p);
+    }
+
+    this.candidates = [];
+    for (const provider of this.providers) {
+      for (const model of provider.models) {
+        if (model.disabled) continue;
+        this.candidates.push({ provider, model, key: `${provider.id}/${model.id}` });
+      }
+    }
+  }
+
+  apiKey(providerId: string): string {
+    const k = this.keys.get(providerId);
+    if (!k) throw new Error(`no API key loaded for provider '${providerId}'`);
+    return k;
+  }
+
+  accountId(providerId: string): string | undefined {
+    return this.accountIds.get(providerId);
+  }
+
+  profile(name?: string): MeshProfile {
+    const p = this.profiles[name ?? this.defaultProfile];
+    if (!p) throw new Error(`unknown mesh profile '${name}'`);
+    return p;
+  }
+
+  find(key: string): Candidate | undefined {
+    return this.candidates.find((c) => c.key === key);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Derived helpers used by both routing and reporting                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Blended price in USD per million tokens, assuming a 3:1 input:output mix.
+ *
+ * A single number is needed for ranking; the 3:1 mix is a chat-shaped guess and
+ * is documented rather than hidden because it decides which model is "cheaper".
+ */
+export function blendedPrice(model: ModelEntry): number {
+  return model.price.inPerMTok * 0.75 + model.price.outPerMTok * 0.25;
+}
+
+export function isFree(model: ModelEntry): boolean {
+  return model.price.inPerMTok === 0 && model.price.outPerMTok === 0;
+}
+
+export function languageScore(model: ModelEntry, language: LanguageTag | undefined): number {
+  if (!language) return 1;
+  const langs = model.languages;
+  if (!langs) return DEFAULT_LANGUAGE_SCORE;
+  const tag = language.toLowerCase();
+  if (langs[tag] !== undefined) return langs[tag] as number;
+  const base = tag.split('-')[0] as string;
+  if (langs[base] !== undefined) return langs[base] as number;
+  if (langs['*'] !== undefined) return langs['*'] as number;
+  return DEFAULT_LANGUAGE_SCORE;
+}
+
+export function maxPrivacyOf(candidate: Candidate): PrivacyLevel {
+  return candidate.model.maxPrivacy ?? candidate.provider.maxPrivacy;
+}
+
+export function servesPrivacy(candidate: Candidate, level: PrivacyLevel): boolean {
+  return PRIVACY_ORDER[maxPrivacyOf(candidate)] >= PRIVACY_ORDER[level];
+}
+
+export function hasCapabilities(model: ModelEntry, required: Capability[] | undefined): boolean {
+  if (!required || required.length === 0) return true;
+  return required.every((c) => model.capabilities.includes(c));
+}
+
+/** Cost of one call in USD, from real usage. */
+export function costOf(model: ModelEntry, promptTokens: number, completionTokens: number): number {
+  return (
+    (promptTokens / 1_000_000) * model.price.inPerMTok +
+    (completionTokens / 1_000_000) * model.price.outPerMTok
+  );
+}

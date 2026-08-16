@@ -1,0 +1,51 @@
+{
+  "name": "inferencemesh",
+  "version": "0.1.0",
+  "description": "OpenAI-compatible router that picks an LLM provider per request by cost, capability, language, privacy, quota and health.",
+  "type": "module",
+  "license": "MIT",
+  "author": "GDA Labs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gdalabs/inferencemesh.git"
+  },
+  "keywords": [
+    "llm",
+    "router",
+    "openai-compatible",
+    "byok",
+    "fallback",
+    "groq",
+    "gemini",
+    "openrouter",
+    "cloudflare-workers"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./dist/server/node.js"
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "inferencemesh": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "providers.default.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/",
+    "serve": "npm run build && node dist/server/node.js",
+    "probe": "npm run build && node dist/cli.js probe"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "$comment": [
+    "Default registry: FREE TIERS ONLY.",
+    "",
+    "Every price here is 0 because a free tier's price is 0 by definition — that is",
+    "the one number about a provider that cannot go stale in a way that lies to you.",
+    "Paid models are deliberately NOT shipped: their per-token prices change without",
+    "notice, and a stale price does not fail loudly, it silently reorders the 'cheap'",
+    "profile. Copy providers.example.json and fill in prices you have verified yourself.",
+    "",
+    "Model ids and free-tier quotas DO rot. Run `npx inferencemesh probe` to find out",
+    "which entries still resolve against your own keys before trusting this file.",
+    "",
+    "`quality` and `languages` are hand-maintained relative estimates, not benchmarks.",
+    "They only need to order THIS list correctly."
+  ],
+  "verifiedAt": "2026-08-16",
+  "providers": [
+    {
+      "id": "groq",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "apiKeyEnv": "GROQ_API_KEY",
+      "maxPrivacy": "internal",
+      "models": [
+        {
+          "id": "llama-3.3-70b-versatile",
+          "label": "Llama 3.3 70B (Groq)",
+          "capabilities": ["text", "code", "tools", "json"],
+          "contextWindow": 131072,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.72,
+          "languages": { "en": 0.9, "ja": 0.72, "zh": 0.78, "ko": 0.7, "*": 0.65 },
+          "quota": { "requestsPerMinute": 30, "requestsPerDay": 1000 }
+        },
+        {
+          "id": "llama-3.1-8b-instant",
+          "label": "Llama 3.1 8B (Groq)",
+          "capabilities": ["text", "code", "tools", "json"],
+          "contextWindow": 131072,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.5,
+          "languages": { "en": 0.8, "ja": 0.55, "zh": 0.6, "ko": 0.52, "*": 0.5 },
+          "quota": { "requestsPerMinute": 30, "requestsPerDay": 14400 }
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "kind": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "maxPrivacy": "internal",
+      "models": [
+        {
+          "id": "gemini-2.5-flash",
+          "label": "Gemini 2.5 Flash",
+          "capabilities": ["text", "code", "vision", "ocr", "tools", "json"],
+          "contextWindow": 1048576,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.82,
+          "languages": { "en": 0.93, "ja": 0.9, "zh": 0.9, "ko": 0.88, "th": 0.85, "vi": 0.85, "id": 0.85, "*": 0.8 },
+          "quota": { "requestsPerMinute": 10, "requestsPerDay": 250 }
+        },
+        {
+          "id": "gemini-2.0-flash",
+          "label": "Gemini 2.0 Flash",
+          "capabilities": ["text", "code", "vision", "ocr", "tools", "json"],
+          "contextWindow": 1048576,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.74,
+          "languages": { "en": 0.9, "ja": 0.87, "zh": 0.88, "ko": 0.85, "th": 0.82, "vi": 0.82, "id": 0.82, "*": 0.78 },
+          "quota": { "requestsPerMinute": 15, "requestsPerDay": 200 }
+        }
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "kind": "workers-ai",
+      "baseUrl": "https://api.cloudflare.com/client/v4",
+      "apiKeyEnv": "CLOUDFLARE_API_TOKEN",
+      "accountIdEnv": "CLOUDFLARE_ACCOUNT_ID",
+      "maxPrivacy": "internal",
+      "models": [
+        {
+          "id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "label": "Llama 3.3 70B (Workers AI)",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 24000,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.68,
+          "languages": { "en": 0.88, "ja": 0.7, "zh": 0.75, "*": 0.62 },
+          "quota": { "requestsPerMinute": 30 }
+        },
+        {
+          "id": "@cf/meta/llama-3.1-8b-instruct",
+          "label": "Llama 3.1 8B (Workers AI)",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 7968,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.46,
+          "languages": { "en": 0.78, "ja": 0.5, "zh": 0.56, "*": 0.45 },
+          "quota": { "requestsPerMinute": 30 }
+        }
+      ]
+    },
+    {
+      "id": "openrouter-free",
+      "kind": "openai-compat",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "maxPrivacy": "internal",
+      "headers": {
+        "X-Title": "InferenceMesh"
+      },
+      "$comment": [
+        "OpenRouter ':free' ids are the fastest-rotting entries in this file — a model",
+        "moves off the free tier without any announcement and starts answering 404.",
+        "The ids below were confirmed free and reachable on 2026-08-16 by",
+        "`inferencemesh probe`. Re-run it before trusting them.",
+        "Refresh the list of what is currently free with:",
+        "  curl -s https://openrouter.ai/api/v1/models | jq -r '.data[]|select(.id|endswith(\":free\"))|.id'"
+      ],
+      "models": [
+        {
+          "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "label": "Nemotron 3 Ultra 550B (OpenRouter free)",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 1000000,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.84,
+          "languages": { "en": 0.93, "ja": 0.8, "zh": 0.82, "ko": 0.76, "*": 0.7 },
+          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+        },
+        {
+          "id": "nvidia/nemotron-3-super-120b-a12b:free",
+          "label": "Nemotron 3 Super 120B (OpenRouter free)",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 262144,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.76,
+          "languages": { "en": 0.9, "ja": 0.76, "zh": 0.78, "ko": 0.72, "*": 0.68 },
+          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+        },
+        {
+          "id": "google/gemma-4-31b-it:free",
+          "label": "Gemma 4 31B (OpenRouter free)",
+          "capabilities": ["text", "code", "vision", "json"],
+          "contextWindow": 262144,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.7,
+          "languages": { "en": 0.88, "ja": 0.8, "zh": 0.82, "ko": 0.78, "th": 0.72, "vi": 0.72, "id": 0.72, "*": 0.68 },
+          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+        },
+        {
+          "id": "openai/gpt-oss-20b:free",
+          "label": "gpt-oss 20B (OpenRouter free)",
+          "capabilities": ["text", "code", "json"],
+          "contextWindow": 131072,
+          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "quality": 0.6,
+          "languages": { "en": 0.86, "ja": 0.68, "zh": 0.7, "*": 0.6 },
+          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+        }
+      ]
+    }
+  ]
+}
