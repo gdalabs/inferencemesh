@@ -19,6 +19,7 @@ import { handleRequest, type KeyStore } from '../gateway.js';
 import { InferenceMesh } from '../mesh.js';
 import { QuotaLedger, type LedgerRecord, type LedgerStorage } from '../ledger.js';
 import { registryFrom } from '../config.js';
+import { EMBEDDED_REGISTRY } from '../embedded-registry.js';
 import type { ProviderConfig } from '../types.js';
 import { mergeEnv } from '../setup.js';
 
@@ -108,14 +109,39 @@ export class FileKeyStore implements KeyStore {
   private configs: ProviderConfig[] = [];
 
   async reload(): Promise<ReturnType<typeof registryFrom>> {
-    const raw = JSON.parse(await readFile(this.registryPath, 'utf8')) as { providers: ProviderConfig[] };
+    const raw = (await loadRegistryFile(this.registryPath)) as { providers: ProviderConfig[] };
     this.configs = raw.providers;
     return registryFrom(raw, { env: this.env() });
   }
 }
 
+/**
+ * Read the registry from `path`, falling back to the copy compiled in.
+ *
+ * The fallback is what makes a single-file build work at all: there is no
+ * JSON on disk beside a bundled script or an embedded executable.
+ */
+export async function loadRegistryFile(path: string | null): Promise<unknown> {
+  if (path) {
+    try {
+      return JSON.parse(await readFile(path, 'utf8')) as unknown;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
+  }
+  return EMBEDDED_REGISTRY;
+}
+
 function defaultRegistryPath(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
+  // `import.meta.url` does not survive a CommonJS bundle, and a single
+  // executable has no meaningful module path at all. Both cases fall through
+  // to the embedded registry.
+  let dir: string;
+  try {
+    dir = dirname(fileURLToPath(import.meta.url));
+  } catch {
+    return '';
+  }
   for (let i = 0; i < 6; i++) {
     const candidate = resolve(dir, 'providers.default.json');
     if (existsSync(candidate)) return candidate;
@@ -123,11 +149,9 @@ function defaultRegistryPath(): string {
     if (parent === dir) break;
     dir = parent;
   }
-  throw new Error(
-    'providers.default.json not found near ' +
-      fileURLToPath(import.meta.url) +
-      ' — set INFERENCEMESH_REGISTRY to point at your registry file',
-  );
+  // Not an error any more: a bundled or embedded build has no such file and
+  // uses the compiled-in registry instead.
+  return '';
 }
 
 async function toFetchRequest(req: IncomingMessage, origin: string): Promise<Request> {
@@ -273,8 +297,21 @@ export async function main(): Promise<void> {
   process.on('SIGTERM', shutdown);
 }
 
-const invokedDirectly =
-  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invokedDirectly) {
+/**
+ * Only auto-start when this file *is* the program.
+ *
+ * `import.meta.url` is meaningless in a CommonJS bundle and throws there, so
+ * the check is guarded rather than assumed — an unguarded call crashes the
+ * bundled build at import time, before any command has a chance to run.
+ */
+function isEntryPoint(): boolean {
+  try {
+    return process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
   void main();
 }

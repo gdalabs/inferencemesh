@@ -13,14 +13,13 @@
  * exit code you can put on a schedule.
  */
 
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { registryFrom } from './config.js';
 import { InferenceMesh } from './mesh.js';
 import { Router } from './router.js';
 import { blendedPrice, maxPrivacyOf } from './registry.js';
-import { configFromEnv, main as serveMain } from './server/node.js';
+import { configFromEnv, loadRegistryFile, main as serveMain } from './server/node.js';
 import { runSetup } from './setup.js';
 import { ProviderError } from './providers/base.js';
 import type { Capability, PrivacyLevel } from './types.js';
@@ -32,7 +31,7 @@ function fail(msg: string): never {
 
 async function loadRegistry() {
   const cfg = configFromEnv();
-  const raw = JSON.parse(await readFile(cfg.registryPath, 'utf8')) as unknown;
+  const raw = await loadRegistryFile(cfg.registryPath || null);
   const registry = registryFrom(raw);
   for (const w of registry.warnings) {
     console.warn(`warn: provider '${w.providerId}' skipped: ${w.reason}`);
