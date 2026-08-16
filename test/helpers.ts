@@ -40,6 +40,24 @@ export function fixtureProviders(): ProviderConfig[] {
       ],
     },
     {
+      id: 'keyless',
+      kind: 'openai-compat',
+      baseUrl: 'https://keyless.test/v1',
+      apiKeyEnv: 'KEYLESS_KEY',
+      apiKeyOptional: true,
+      maxPrivacy: 'public',
+      models: [
+        {
+          id: 'open-tier',
+          capabilities: ['text'],
+          contextWindow: 8000,
+          price: { inPerMTok: 0, outPerMTok: 0 },
+          quality: 0.3,
+          languages: { en: 0.7, ja: 0.5 },
+        },
+      ],
+    },
+    {
       id: 'paid',
       kind: 'openai-compat',
       baseUrl: 'https://paid.test/v1',

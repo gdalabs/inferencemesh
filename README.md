@@ -174,6 +174,33 @@ needs a human (`BROKE`, exit 1), while a `429` means the free tier is working as
 `quality` and `languages` scores are hand-maintained relative estimates, not benchmark results.
 They only have to order *your* registry correctly.
 
+## Finding new providers
+
+New entrants give inference away deliberately — it is customer acquisition, not charity — so the
+best free tier available today is often one that did not exist when your registry was written.
+A hand-written list is stale the month it ships.
+
+```sh
+node scripts/discover-providers.mjs        # exit 10 when there is something new
+node scripts/discover-providers.mjs --json
+```
+
+It diffs each provider's own `/v1/models` against the last run (catching **removals**, which are
+what break your registry, as well as additions) and sweeps Hacker News and starred community lists.
+Every source is keyless, because a source that needs a key stops working exactly when you stop
+noticing. Findings are candidates: confirm with `probe` before adding anything.
+
+## Providers that need no key at all
+
+A provider may declare `apiKeyOptional: true`, in which case it is loaded even with no credential
+and the adapter sends **no** `Authorization` header — an empty `Bearer ` is rejected as malformed by
+some gateways, which looks identical to a bad key.
+
+This makes a zero-signup deployment possible: with an empty environment the mesh still routes, using
+only the open-tier providers. Such providers are pinned to `maxPrivacy: "public"` in the shipped
+registry, and they should stay there — an endpoint anyone can call anonymously is not somewhere to
+send anything you would mind being logged.
+
 ## Development
 
 ```sh

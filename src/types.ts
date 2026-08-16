@@ -99,6 +99,15 @@ export interface ProviderConfig {
    * A provider whose key is absent is dropped from the registry at load time.
    */
   apiKeyEnv: string;
+  /**
+   * Set when the provider serves requests with no credential at all.
+   *
+   * Rare but real: a few providers run an open free tier to acquire users. The
+   * provider is then loaded even with no key, and the adapter sends no
+   * Authorization header — sending an empty bearer token is worse than sending
+   * none, because some gateways reject the malformed header outright.
+   */
+  apiKeyOptional?: boolean;
   /** Cloudflare account id, workers-ai only. Read from env if it names one. */
   accountIdEnv?: string;
   /** Highest sensitivity any model of this provider may serve. */

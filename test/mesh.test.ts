@@ -73,6 +73,15 @@ describe('mesh — happy path', () => {
     assert.equal(calls[0]?.headers['authorization'], 'Bearer k-alpha');
   });
 
+  test('a keyless provider gets no Authorization header at all', async () => {
+    // `Bearer ` with an empty token is rejected as malformed by some gateways,
+    // which looks identical to a bad key. Send nothing instead.
+    const { m, calls } = mesh(() => okChat('hi'));
+    await m.chat({ model: 'keyless/open-tier', messages: [{ role: 'user', content: 'x' }] });
+    assert.equal(calls[0]?.headers['authorization'], undefined);
+    assert.equal(calls[0]?.url, 'https://keyless.test/v1/chat/completions');
+  });
+
   test('strips the mesh extension before it reaches the provider', async () => {
     const { m, calls } = mesh(() => okChat('hi'));
     await m.chat({

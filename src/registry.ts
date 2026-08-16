@@ -98,7 +98,7 @@ export class Registry {
         continue;
       }
       const key = env[p.apiKeyEnv];
-      if (!key) {
+      if (!key && !p.apiKeyOptional) {
         this.warnings.push({ providerId: p.id, reason: `missing env ${p.apiKeyEnv}` });
         continue;
       }
@@ -110,7 +110,7 @@ export class Registry {
         }
         this.accountIds.set(p.id, account);
       }
-      this.keys.set(p.id, key);
+      this.keys.set(p.id, key ?? '');
       this.providers.push(p);
     }
 
@@ -123,9 +123,10 @@ export class Registry {
     }
   }
 
+  /** Empty string means "this provider takes no credential" — see apiKeyOptional. */
   apiKey(providerId: string): string {
     const k = this.keys.get(providerId);
-    if (!k) throw new Error(`no API key loaded for provider '${providerId}'`);
+    if (k === undefined) throw new Error(`no API key loaded for provider '${providerId}'`);
     return k;
   }
 

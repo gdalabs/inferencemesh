@@ -26,7 +26,9 @@ function endpoint(ctx: AdapterContext): string {
 function headers(ctx: AdapterContext): Record<string, string> {
   return {
     'content-type': 'application/json',
-    authorization: `Bearer ${ctx.apiKey}`,
+    // An empty key means the provider takes no credential. Send no header at
+    // all rather than `Bearer `, which some gateways reject as malformed.
+    ...(ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {}),
     ...(ctx.candidate.provider.headers ?? {}),
   };
 }

@@ -16,15 +16,26 @@ describe('registry loading', () => {
     const r = new Registry(fixtureProviders(), { env: { ALPHA_KEY: 'k', PAID_KEY: 'k' } });
     assert.deepEqual(
       r.providers.map((p) => p.id),
-      ['alpha', 'paid'],
+      ['alpha', 'keyless', 'paid'],
+      "'keyless' is present without a key because it declares apiKeyOptional",
     );
     assert.deepEqual(r.warnings, [{ providerId: 'beta', reason: 'missing env BETA_KEY' }]);
   });
 
-  test('an empty environment yields no candidates rather than throwing', () => {
+  test('an empty environment keeps only the providers that need no key', () => {
     const r = new Registry(fixtureProviders(), { env: {} });
-    assert.equal(r.candidates.length, 0);
+    assert.deepEqual(
+      r.providers.map((p) => p.id),
+      ['keyless'],
+      'apiKeyOptional survives a completely unconfigured environment',
+    );
     assert.equal(r.warnings.length, 3);
+    assert.equal(r.apiKey('keyless'), '', 'empty string means "takes no credential"');
+  });
+
+  test('asking for a key the registry never loaded is an error, not an empty string', () => {
+    const r = new Registry(fixtureProviders(), { env: {} });
+    assert.throws(() => r.apiKey('alpha'), /no API key loaded/);
   });
 
   test('validation rejects deliberately broken registry files', () => {
@@ -90,7 +101,7 @@ describe('router — hard filters', () => {
       d.ranked.map((r) => r.candidate.key),
       ['beta/beta-free'],
     );
-    assert.equal(d.rejected.filter((r) => r.reason.startsWith('capability')).length, 2);
+    assert.equal(d.rejected.filter((r) => r.reason.startsWith('capability')).length, 3);
   });
 
   test('minContext excludes small windows', () => {
@@ -166,10 +177,9 @@ describe('router — health', () => {
   test('when every breaker is open, health is ignored rather than answering nothing', () => {
     const clock = fakeClock();
     const health = new HealthTracker({ failureThreshold: 1 }, clock.now);
-    health.failure('alpha/alpha-free');
-    health.failure('beta/beta-free');
+    for (const k of ['alpha/alpha-free', 'beta/beta-free', 'keyless/open-tier']) health.failure(k);
     const d = new Router(registry(), { health }).route({ mesh: 'free' });
-    assert.equal(d.ranked.length, 2, 'a probably-down provider still beats no provider');
+    assert.equal(d.ranked.length, 3, 'a probably-down provider still beats no provider');
   });
 
   test('a closed breaker restores the candidate after the cooldown', () => {

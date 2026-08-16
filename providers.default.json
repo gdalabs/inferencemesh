@@ -26,22 +26,118 @@
         {
           "id": "llama-3.3-70b-versatile",
           "label": "Llama 3.3 70B (Groq)",
-          "capabilities": ["text", "code", "tools", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
           "contextWindow": 131072,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.72,
-          "languages": { "en": 0.9, "ja": 0.72, "zh": 0.78, "ko": 0.7, "*": 0.65 },
-          "quota": { "requestsPerMinute": 30, "requestsPerDay": 1000 }
+          "languages": {
+            "en": 0.9,
+            "ja": 0.72,
+            "zh": 0.78,
+            "ko": 0.7,
+            "*": 0.65
+          },
+          "quota": {
+            "requestsPerMinute": 30,
+            "requestsPerDay": 1000
+          }
         },
         {
           "id": "llama-3.1-8b-instant",
           "label": "Llama 3.1 8B (Groq)",
-          "capabilities": ["text", "code", "tools", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
           "contextWindow": 131072,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.5,
-          "languages": { "en": 0.8, "ja": 0.55, "zh": 0.6, "ko": 0.52, "*": 0.5 },
-          "quota": { "requestsPerMinute": 30, "requestsPerDay": 14400 }
+          "languages": {
+            "en": 0.8,
+            "ja": 0.55,
+            "zh": 0.6,
+            "ko": 0.52,
+            "*": 0.5
+          },
+          "quota": {
+            "requestsPerMinute": 30,
+            "requestsPerDay": 14400
+          }
+        },
+        {
+          "id": "minimaxai/minimax-m2.7",
+          "label": "MiniMax M2.7 (Groq preview)",
+          "$comment": "Groq の preview 枠。production ではないので予告なく消えうる（probe が検出する）",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.78,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.84,
+            "zh": 0.94,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30,
+            "requestsPerDay": 1000
+          }
+        },
+        {
+          "id": "qwen/qwen3.6-27b",
+          "label": "Qwen3.6 27B (Groq preview)",
+          "$comment": "同上（preview）",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.7,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.84,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30,
+            "requestsPerDay": 1000
+          }
         }
       ]
     },
@@ -55,22 +151,420 @@
         {
           "id": "gemini-2.5-flash",
           "label": "Gemini 2.5 Flash",
-          "capabilities": ["text", "code", "vision", "ocr", "tools", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "ocr",
+            "tools",
+            "json"
+          ],
           "contextWindow": 1048576,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.82,
-          "languages": { "en": 0.93, "ja": 0.9, "zh": 0.9, "ko": 0.88, "th": 0.85, "vi": 0.85, "id": 0.85, "*": 0.8 },
-          "quota": { "requestsPerMinute": 10, "requestsPerDay": 250 }
+          "languages": {
+            "en": 0.93,
+            "ja": 0.9,
+            "zh": 0.9,
+            "ko": 0.88,
+            "th": 0.85,
+            "vi": 0.85,
+            "id": 0.85,
+            "*": 0.8
+          },
+          "quota": {
+            "requestsPerMinute": 10,
+            "requestsPerDay": 250
+          }
         },
         {
           "id": "gemini-2.0-flash",
           "label": "Gemini 2.0 Flash",
-          "capabilities": ["text", "code", "vision", "ocr", "tools", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "ocr",
+            "tools",
+            "json"
+          ],
           "contextWindow": 1048576,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.74,
-          "languages": { "en": 0.9, "ja": 0.87, "zh": 0.88, "ko": 0.85, "th": 0.82, "vi": 0.82, "id": 0.82, "*": 0.78 },
-          "quota": { "requestsPerMinute": 15, "requestsPerDay": 200 }
+          "languages": {
+            "en": 0.9,
+            "ja": 0.87,
+            "zh": 0.88,
+            "ko": 0.85,
+            "th": 0.82,
+            "vi": 0.82,
+            "id": 0.82,
+            "*": 0.78
+          },
+          "quota": {
+            "requestsPerMinute": 15,
+            "requestsPerDay": 200
+          }
+        }
+      ]
+    },
+    {
+      "id": "nvidia",
+      "kind": "openai-compat",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnv": "NVIDIA_API_KEY",
+      "maxPrivacy": "internal",
+      "$comment": [
+        "build.nvidia.com（NVIDIA Developer Program・クレカ不要）。/v1/models を無認証で引けるので",
+        "2026-08-16 に実在を確認済み（102モデル）。DeepSeek / Kimi / MiniMax / GLM の4系統が",
+        "そろって無料で引ける経路は、調べた範囲でここだけ。",
+        "🔴 contextWindow は NVIDIA がカタログで公開していない。モデル本来の値（1M 等）ではなく",
+        "**意図的に保守的な値**を入れてある。過大に書くと minContext フィルタが誤って通してしまい、",
+        "上流で切られる。足りなければ実測して上げること。",
+        "レート制限は無料枠で約 40 RPM とされるが一次情報で確認できていないため、30 RPM で控えめに置いた。"
+      ],
+      "models": [
+        {
+          "id": "deepseek-ai/deepseek-v4-flash-0731",
+          "label": "DeepSeek V4 Flash (NVIDIA NIM)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.86,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.86,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
+        },
+        {
+          "id": "moonshotai/kimi-k2.6",
+          "label": "Kimi K2.6 (NVIDIA NIM)",
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.85,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.88,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
+        },
+        {
+          "id": "minimaxai/minimax-m3",
+          "label": "MiniMax M3 (NVIDIA NIM)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.8,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.85,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
+        },
+        {
+          "id": "z-ai/glm-5.2",
+          "label": "GLM-5.2 (NVIDIA NIM)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.84,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.87,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
+        },
+        {
+          "id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+          "label": "DeepSeek Coder 6.7B (NVIDIA NIM)",
+          "capabilities": [
+            "text",
+            "code"
+          ],
+          "contextWindow": 16384,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.45,
+          "languages": {
+            "en": 0.8,
+            "ja": 0.5,
+            "zh": 0.7,
+            "*": 0.5
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "zai",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "apiKeyEnv": "ZAI_API_KEY",
+      "maxPrivacy": "internal",
+      "$comment": [
+        "Z.ai（GLM 本家）。POST /api/paas/v4/chat/completions が 401 を返すことを実測で確認（＝実在）。",
+        "flash 系（glm-4.7-flash / glm-4.5-flash / glm-4.6v-flash）が恒久無料とされる。",
+        "🔴 無料枠は同時実行 1 とされ、RPM/RPD の一次情報が取れていない。",
+        "quota は控えめに 60 RPM/日 1000 を置いたが**これは推測値**なので、実測できたら直すこと。",
+        "同時実行1がボトルネックなら、複数リクエストを並行させないこと。"
+      ],
+      "models": [
+        {
+          "id": "glm-4.7-flash",
+          "label": "GLM-4.7 Flash (Z.ai)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.72,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.86,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 60,
+            "requestsPerDay": 1000
+          }
+        },
+        {
+          "id": "glm-4.5-flash",
+          "label": "GLM-4.5 Flash (Z.ai)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.64,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.84,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 60,
+            "requestsPerDay": 1000
+          }
+        },
+        {
+          "id": "glm-4.6v-flash",
+          "label": "GLM-4.6V Flash (Z.ai, vision)",
+          "capabilities": [
+            "text",
+            "vision",
+            "ocr",
+            "json"
+          ],
+          "contextWindow": 65536,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.62,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.82,
+            "zh": 0.94,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 60,
+            "requestsPerDay": 1000
+          }
+        }
+      ]
+    },
+    {
+      "id": "modelscope",
+      "kind": "openai-compat",
+      "baseUrl": "https://api-inference.modelscope.cn/v1",
+      "apiKeyEnv": "MODELSCOPE_API_KEY",
+      "maxPrivacy": "internal",
+      "$comment": [
+        "ModelScope（Alibaba）。/v1/models を無認証で引けるので 43モデルの実在を確認済み（2026-08-16）。",
+        "DeepSeek V4 Flash/Pro と MiniMax M3 が無料枠にある。",
+        "🔴 中国本土のサービスなので、データの所在を理解した上で使うこと。maxPrivacy を上げないこと。",
+        "🔴 レート制限の一次情報が取れていないので quota は未設定。枯渇は上流エラーとして現れる。"
+      ],
+      "models": [
+        {
+          "id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+          "label": "DeepSeek V4 Flash (ModelScope)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.86,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.86,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "MiniMax/MiniMax-M3",
+          "label": "MiniMax M3 (ModelScope)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.8,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.85,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+          "label": "Qwen3 235B (ModelScope)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.78,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.85,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
         }
       ]
     },
@@ -83,25 +577,140 @@
       "maxPrivacy": "internal",
       "models": [
         {
-          "id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-          "label": "Llama 3.3 70B (Workers AI)",
-          "capabilities": ["text", "code", "json"],
-          "contextWindow": 24000,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
-          "quality": 0.68,
-          "languages": { "en": 0.88, "ja": 0.7, "zh": 0.75, "*": 0.62 },
-          "quota": { "requestsPerMinute": 30 }
+          "id": "@cf/moonshotai/kimi-k2.5",
+          "label": "Kimi K2.5 (Workers AI)",
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 256000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.8,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.88,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
         },
         {
-          "id": "@cf/meta/llama-3.1-8b-instruct",
-          "label": "Llama 3.1 8B (Workers AI)",
-          "capabilities": ["text", "code", "json"],
-          "contextWindow": 7968,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
-          "quality": 0.46,
-          "languages": { "en": 0.78, "ja": 0.5, "zh": 0.56, "*": 0.45 },
-          "quota": { "requestsPerMinute": 30 }
+          "id": "@cf/zai-org/glm-4.7-flash",
+          "label": "GLM-4.7 Flash (Workers AI)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.72,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.86,
+            "zh": 0.96,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+          "label": "DeepSeek R1 Distill Qwen 32B (Workers AI)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 80000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.62,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.78,
+            "zh": 0.9,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "label": "Qwen3 30B A3B (Workers AI)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 32768,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.6,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.8,
+            "zh": 0.92,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "label": "Llama 3.3 70B (Workers AI)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 24000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.68,
+          "languages": {
+            "en": 0.88,
+            "ja": 0.7,
+            "zh": 0.75,
+            "*": 0.62
+          }
         }
+      ],
+      "$comment": [
+        "Workers AI の無料枠は 1日 10,000 Neurons（超えるとエラー・00:00 UTC リセット）。",
+        "🔴 Neurons はトークンでもリクエストでもないので、この台帳では正確に表現できない。",
+        "そのため quota を意図的に空にしてある（推測値を入れると嘘になる）。枯渇は上流エラーとして",
+        "現れ、health のブレーカーが拾う。",
+        "🔴 さらに重要: 目玉モデルの多くは『Paid access required / not available through standard",
+        "Workers Free billing』で無料プランでは使えない。2026-08-16 に各モデルページを実測し、",
+        "**無料プランで使えるものだけ**をここに残した。有料専用だったもの:",
+        "@cf/deepseek-ai/deepseek-v4-flash-0731 / deepseek-v4-pro-0813 / @cf/moonshotai/kimi-k2.6 /",
+        "kimi-k2.7-code / @cf/zai-org/glm-5.2"
       ]
     },
     {
@@ -125,42 +734,221 @@
         {
           "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
           "label": "Nemotron 3 Ultra 550B (OpenRouter free)",
-          "capabilities": ["text", "code", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
           "contextWindow": 1000000,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.84,
-          "languages": { "en": 0.93, "ja": 0.8, "zh": 0.82, "ko": 0.76, "*": 0.7 },
-          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+          "languages": {
+            "en": 0.93,
+            "ja": 0.8,
+            "zh": 0.82,
+            "ko": 0.76,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
         },
         {
           "id": "nvidia/nemotron-3-super-120b-a12b:free",
           "label": "Nemotron 3 Super 120B (OpenRouter free)",
-          "capabilities": ["text", "code", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
           "contextWindow": 262144,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.76,
-          "languages": { "en": 0.9, "ja": 0.76, "zh": 0.78, "ko": 0.72, "*": 0.68 },
-          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+          "languages": {
+            "en": 0.9,
+            "ja": 0.76,
+            "zh": 0.78,
+            "ko": 0.72,
+            "*": 0.68
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
         },
         {
           "id": "google/gemma-4-31b-it:free",
           "label": "Gemma 4 31B (OpenRouter free)",
-          "capabilities": ["text", "code", "vision", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "json"
+          ],
           "contextWindow": 262144,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.7,
-          "languages": { "en": 0.88, "ja": 0.8, "zh": 0.82, "ko": 0.78, "th": 0.72, "vi": 0.72, "id": 0.72, "*": 0.68 },
-          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+          "languages": {
+            "en": 0.88,
+            "ja": 0.8,
+            "zh": 0.82,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.68
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
         },
         {
           "id": "openai/gpt-oss-20b:free",
           "label": "gpt-oss 20B (OpenRouter free)",
-          "capabilities": ["text", "code", "json"],
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
           "contextWindow": 131072,
-          "price": { "inPerMTok": 0, "outPerMTok": 0 },
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
           "quality": 0.6,
-          "languages": { "en": 0.86, "ja": 0.68, "zh": 0.7, "*": 0.6 },
-          "quota": { "requestsPerMinute": 20, "requestsPerDay": 50 }
+          "languages": {
+            "en": 0.86,
+            "ja": 0.68,
+            "zh": 0.7,
+            "*": 0.6
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": "ovhcloud",
+      "kind": "openai-compat",
+      "baseUrl": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+      "apiKeyEnv": "OVH_AI_TOKEN",
+      "maxPrivacy": "internal",
+      "$comment": [
+        "OVHcloud AI Endpoints（EU・フランス）。/v1/models を無認証で引けて20モデルの実在を確認（2026-08-16）。",
+        "DeepSeek/Kimi/MiniMax は無いが Qwen が厚い。**EU圏でホストされている**点が他と違うので、",
+        "データ所在を気にする用途ではここが候補になる（GDPR 的な判断は各自で）。"
+      ],
+      "models": [
+        {
+          "id": "Qwen3.5-397B-A17B",
+          "label": "Qwen3.5 397B (OVHcloud EU)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.82,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.84,
+            "zh": 0.95,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        },
+        {
+          "id": "Qwen3.6-27B",
+          "label": "Qwen3.6 27B (OVHcloud EU)",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 131072,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.7,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.82,
+            "zh": 0.94,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          }
+        }
+      ]
+    },
+    {
+      "id": "llm7",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.llm7.io/v1",
+      "apiKeyEnv": "LLM7_API_KEY",
+      "apiKeyOptional": true,
+      "maxPrivacy": "public",
+      "$comment": [
+        "🔴 このプロバイダは API キー無しで動く（2026-08-16 に minimax-m2.7 で実測。usage 付きの本物の応答）。",
+        "サインアップ不要なので『サイト訪問者に無料AI体験を出す』用途に直接使える唯一の経路。",
+        "🔴 だからこそ maxPrivacy は 'public' に固定してある。無認証で誰でも叩ける先に、",
+        "internal 以上のテキストを流してはいけない（誰がログを持っているか分からない）。",
+        "無料トークンを登録すると 30 RPM → 120 RPM になるとされ、deepseek/kimi 系は",
+        "キー必須（無キーでは Missing API key. が返ることを実測）。LLM7_API_KEY を入れれば有効になる。",
+        "キー無しで動くものだけを残してある。"
+      ],
+      "models": [
+        {
+          "id": "minimax-m2.7",
+          "label": "MiniMax M2.7 (LLM7, keyless)",
+          "$comment": "2026-08-16 にキー無しで応答を実測",
+          "capabilities": [
+            "text",
+            "code",
+            "json"
+          ],
+          "contextWindow": 204800,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.76,
+          "languages": {
+            "en": 0.9,
+            "ja": 0.84,
+            "zh": 0.94,
+            "ko": 0.78,
+            "th": 0.72,
+            "vi": 0.72,
+            "id": 0.72,
+            "*": 0.7
+          },
+          "quota": {
+            "requestsPerMinute": 30
+          }
         }
       ]
     }
