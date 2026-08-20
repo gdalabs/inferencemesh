@@ -154,7 +154,11 @@ function defaultRegistryPath(): string {
   return '';
 }
 
-async function toFetchRequest(req: IncomingMessage, origin: string): Promise<Request> {
+async function toFetchRequest(
+  req: IncomingMessage,
+  origin: string,
+  signal: AbortSignal,
+): Promise<Request> {
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   const headers = new Headers();
@@ -166,11 +170,14 @@ async function toFetchRequest(req: IncomingMessage, origin: string): Promise<Req
   return new Request(new URL(req.url ?? '/', origin), {
     method: req.method,
     headers,
+    // Without this the gateway's `req.signal` is a signal that never fires, so
+    // a caller hanging up is invisible all the way down to the provider fetch.
+    signal,
     ...(hasBody && chunks.length ? { body: Buffer.concat(chunks) } : {}),
   });
 }
 
-async function writeFetchResponse(res: ServerResponse, out: Response): Promise<void> {
+export async function writeFetchResponse(res: ServerResponse, out: Response): Promise<void> {
   const headers: Record<string, string> = {};
   out.headers.forEach((v, k) => {
     headers[k] = v;
@@ -181,6 +188,22 @@ async function writeFetchResponse(res: ServerResponse, out: Response): Promise<v
     return;
   }
   const node = Readable.fromWeb(out.body as Parameters<typeof Readable.fromWeb>[0]);
+  /**
+   * `pipe` unpipes when the destination closes, but it does not destroy the
+   * source. A client that hangs up mid-stream therefore leaves the web stream
+   * un-cancelled, which holds the provider's concurrency slot and its socket
+   * for the life of the process. Measured: one abandoned SSE response kept a
+   * `maxConcurrent: 1` provider unusable indefinitely, while every unit test
+   * passed — the tests cancel the stream, and nothing here ever did.
+   */
+  // Destroyed without a reason on purpose: `destroy(err)` emits 'error', and
+  // once `pipe` has unpiped there is no listener left, so the tidy-up would
+  // take the whole process down. There is nobody to report the error to
+  // anyway — the client is the thing that left.
+  node.on('error', () => {});
+  res.on('close', () => {
+    if (!node.readableEnded) node.destroy();
+  });
   node.pipe(res);
   await new Promise<void>((done) => res.on('close', () => done()));
 }
@@ -194,6 +217,31 @@ export interface ServerConfig {
   keysPath: string;
   allowedOrigins: string[];
   publicHealth: boolean;
+  /**
+   * How long a request queues behind a provider that is already at its
+   * `maxConcurrent`, and only once every candidate is busy. 0 fails instead.
+   */
+  concurrencyWaitMs: number;
+}
+
+/**
+ * Read a non-negative integer from the environment.
+ *
+ * `Number(env['X'] ?? 42)` looks equivalent and is not: an env var that is
+ * *set but empty* — which is what `FOO=` in a .env file produces — parses as 0
+ * rather than falling back, so a blank line silently means "port 0" or "never
+ * queue". An unparseable value is refused outright rather than defaulted,
+ * because a typo that quietly reverts to the default is the kind of setting
+ * you only discover is wrong from the behaviour it was supposed to change.
+ */
+function intFromEnv(raw: string | undefined, fallback: number): number {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed === '') return fallback;
+  const n = Number(trimmed);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`expected a non-negative integer, got '${trimmed}'`);
+  }
+  return n;
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -204,7 +252,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
       .filter(Boolean),
   );
   return {
-    port: Number(env['INFERENCEMESH_PORT'] ?? 8910),
+    port: intFromEnv(env['INFERENCEMESH_PORT'], 8910),
     host: env['INFERENCEMESH_HOST'] ?? '127.0.0.1',
     tokens,
     registryPath: env['INFERENCEMESH_REGISTRY'] ?? defaultRegistryPath(),
@@ -215,6 +263,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
       .map((o) => o.trim())
       .filter(Boolean),
     publicHealth: env['INFERENCEMESH_PUBLIC_HEALTH'] === '1',
+    concurrencyWaitMs: intFromEnv(env['INFERENCEMESH_CONCURRENCY_WAIT_MS'], 30_000),
   };
 }
 
@@ -233,7 +282,11 @@ export async function buildMesh(cfg: ServerConfig): Promise<{ mesh: InferenceMes
     );
   }
   return {
-    mesh: new InferenceMesh({ registry, ledger: new QuotaLedger(new FileStorage(cfg.ledgerPath)) }),
+    mesh: new InferenceMesh({
+      registry,
+      ledger: new QuotaLedger(new FileStorage(cfg.ledgerPath)),
+      concurrencyWaitMs: cfg.concurrencyWaitMs,
+    }),
     keyStore,
   };
 }
@@ -259,8 +312,18 @@ export async function main(): Promise<void> {
   const { mesh, keyStore } = await buildMesh(cfg);
   const server = createServer((req, res) => {
     void (async () => {
+      // Aborted when the socket closes before the response finished, so an
+      // in-flight provider call is cancelled instead of running on unwatched.
+      const inbound = new AbortController();
+      res.on('close', () => {
+        if (!res.writableFinished) inbound.abort(new Error('client disconnected'));
+      });
       try {
-        const request = await toFetchRequest(req, `http://${cfg.host}:${cfg.port}`);
+        const request = await toFetchRequest(
+          req,
+          `http://${cfg.host}:${cfg.port}`,
+          inbound.signal,
+        );
         const out = await handleRequest(request, {
           mesh,
           tokens: cfg.tokens,

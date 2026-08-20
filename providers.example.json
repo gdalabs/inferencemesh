@@ -29,6 +29,8 @@
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKeyEnv": "DEEPSEEK_API_KEY",
       "maxPrivacy": "internal",
+      "$comment2": "maxConcurrent is how many requests this account serves at once, which is a different limit from the per-minute quota below and is the one a fan-out hits first. Omit it for unlimited; do not guess a number.",
+      "maxConcurrent": 4,
       "models": [
         {
           "id": "deepseek-chat",
@@ -48,6 +50,8 @@
       "apiKeyEnv": "LOCAL_LLM_KEY",
       "$comment": "vLLM / llama.cpp / Ollama. The only tier that can honestly be 'highly_confidential', because the bytes never leave the box.",
       "maxPrivacy": "highly_confidential",
+      "$comment2": "A local server has one GPU and a real queue depth, so this is the case where the number is knowable: set it to what your server actually runs in parallel.",
+      "maxConcurrent": 1,
       "models": [
         {
           "id": "qwen3-30b-local",

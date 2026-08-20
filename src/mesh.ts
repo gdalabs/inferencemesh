@@ -6,6 +6,7 @@
  * whether "why" is worth trying somebody else for.
  */
 
+import { ConcurrencyLimiter, type Slot } from './concurrency.js';
 import { HealthTracker } from './health.js';
 import { QuotaLedger } from './ledger.js';
 import { Router } from './router.js';
@@ -19,7 +20,9 @@ import {
   type ChatRequest,
   type ChatResponse,
   type MeshTrace,
+  type RouteDecision,
   type RouteRequest,
+  type ScoredCandidate,
   type Usage,
 } from './types.js';
 
@@ -38,12 +41,19 @@ export interface MeshOptions {
   registry: Registry;
   ledger?: QuotaLedger;
   health?: HealthTracker;
+  limiter?: ConcurrencyLimiter;
   fetchImpl?: FetchLike;
   adapters?: Record<string, Adapter>;
   /** Per-attempt timeout. The whole chain can take up to attempts × this. */
   timeoutMs?: number;
   /** Cap on how far down the ranked chain to walk. */
   maxAttempts?: number;
+  /**
+   * How long to queue behind a saturated provider, but only once every
+   * candidate is saturated. Zero disables queueing: the request fails rather
+   * than waits.
+   */
+  concurrencyWaitMs?: number;
   onEvent?: (e: MeshEvent) => void;
 }
 
@@ -120,25 +130,48 @@ export interface StreamResult {
   trace: MeshTrace;
 }
 
+/** Everything one attempt needs, threaded through the chain unchanged. */
+interface AttemptContext {
+  req: ChatRequest;
+  signal: AbortSignal | undefined;
+  streaming: boolean;
+  decision: RouteDecision;
+  estimated: number;
+  attempts: MeshTrace['attempts'];
+  started: number;
+  /**
+   * True once any candidate has actually been handed to a provider.
+   *
+   * Distinguishes "everything was busy" from "something was tried and failed",
+   * which is the difference between queueing being the only way forward and
+   * queueing being added latency on a request that already had its shot.
+   */
+  reached: boolean;
+}
+
 export class InferenceMesh {
   private _registry: Registry;
   readonly ledger: QuotaLedger;
   readonly health: HealthTracker;
+  readonly limits: ConcurrencyLimiter;
   private _router: Router;
   private readonly adapters: Record<string, Adapter>;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
   private readonly maxAttempts: number;
+  private readonly concurrencyWaitMs: number;
   private readonly onEvent: (e: MeshEvent) => void;
 
   constructor(opts: MeshOptions) {
     this._registry = opts.registry;
     this.ledger = opts.ledger ?? new QuotaLedger();
     this.health = opts.health ?? new HealthTracker();
+    this.limits = opts.limiter ?? new ConcurrencyLimiter();
     this._router = new Router(this._registry, { health: this.health });
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
     this.timeoutMs = opts.timeoutMs ?? 60_000;
     this.maxAttempts = opts.maxAttempts ?? 4;
+    this.concurrencyWaitMs = opts.concurrencyWaitMs ?? 30_000;
     this.onEvent = opts.onEvent ?? (() => {});
     this.adapters = opts.adapters ?? {
       'openai-compat': new OpenAICompatAdapter(),
@@ -199,64 +232,146 @@ export class InferenceMesh {
       );
     }
 
-    const estimated = routeReq.estimatedTokens ?? estimateTokens(req);
-    const attempts: MeshTrace['attempts'] = [];
-    const started = Date.now();
+    const ctx: AttemptContext = {
+      req,
+      signal,
+      streaming,
+      decision,
+      estimated: routeReq.estimatedTokens ?? estimateTokens(req),
+      attempts: [],
+      started: Date.now(),
+      reached: false,
+    };
+    const saturated: ScoredCandidate[] = [];
 
     for (const scored of decision.ranked.slice(0, this.maxAttempts)) {
-      const { candidate } = scored;
-      const key = candidate.key;
+      const { provider, key } = scored.candidate;
+      // A busy provider is a reason to try somebody else, not a reason to wait.
+      // Queueing here would spend the fallback chain's whole point on patience.
+      const slot = this.limits.tryAcquire(provider.id, provider.maxConcurrent);
+      if (!slot) {
+        saturated.push(scored);
+        const reason = `concurrency: ${this.limits.inFlight(provider.id)}/${provider.maxConcurrent} in flight`;
+        ctx.attempts.push({ key, error: reason, ms: 0 });
+        this.onEvent({ type: 'attempt', key, error: reason });
+        continue;
+      }
+      const answer = await this.attemptOne(scored, slot, ctx);
+      if (answer) return answer;
+    }
 
-      const admitted = await this.ledger.admit(key, candidate.model.quota, estimated);
+    // Nothing in the chain was ever handed to a provider, and concurrency is
+    // why. There is no faster answer to fall over to, so queue for the
+    // best-ranked busy one instead of returning a 503 that a moment's patience
+    // would have avoided. This is the single-provider case the semaphore is
+    // for; with two providers the loop above has already taken the free one.
+    const head = saturated[0];
+    if (head && !ctx.reached && this.concurrencyWaitMs > 0) {
+      const { provider, key } = head.candidate;
+      try {
+        const slot = await this.limits.acquire(provider.id, provider.maxConcurrent, {
+          timeoutMs: this.concurrencyWaitMs,
+          ...(signal ? { signal } : {}),
+        });
+        const answer = await this.attemptOne(head, slot, ctx);
+        if (answer) return answer;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        ctx.attempts.push({ key, error: `concurrency: ${message}`, ms: 0 });
+        this.onEvent({ type: 'failure', key, error: message });
+      }
+    }
+
+    await this.ledger.flush();
+    this.onEvent({ type: 'exhausted', profile: decision.profile.name });
+    throw new MeshError(
+      `all ${ctx.attempts.length} attempt(s) failed: ` +
+        ctx.attempts.map((a) => `${a.key} (${a.status ?? '-'}: ${a.error})`).join('; '),
+      503,
+      'all_providers_failed',
+      { attempts: ctx.attempts, rejected: decision.rejected },
+    );
+  }
+
+  /**
+   * One candidate, one slot, one shot.
+   *
+   * Returns the answer, or undefined to mean "keep walking the chain". Throws
+   * only for a failure that would repeat identically everywhere.
+   *
+   * `slot` is owned by this method: it is released on every exit except the
+   * streaming one, where the stream is still occupying the provider and the
+   * release rides along to the last byte.
+   */
+  private async attemptOne(
+    scored: ScoredCandidate,
+    slot: Slot,
+    ctx: AttemptContext,
+  ): Promise<ChatResponse | StreamResult | undefined> {
+    const { candidate } = scored;
+    const key = candidate.key;
+    const { attempts } = ctx;
+    let handedOff = false;
+
+    try {
+      const admitted = await this.ledger.admit(key, candidate.model.quota, ctx.estimated);
       if (!admitted.ok) {
         attempts.push({ key, error: `quota: ${admitted.reason}`, ms: 0 });
         this.onEvent({ type: 'attempt', key, error: admitted.reason ?? 'quota' });
-        continue;
+        return undefined;
       }
 
       const adapter = this.adapters[candidate.provider.kind];
       if (!adapter) {
         await this.ledger.refund(key);
         attempts.push({ key, error: `no adapter for kind '${candidate.provider.kind}'`, ms: 0 });
-        continue;
+        return undefined;
       }
 
-      const attempt = combineSignals(this.timeoutMs, signal);
+      const attempt = combineSignals(this.timeoutMs, ctx.signal);
       const t0 = Date.now();
-      this.onEvent({ type: 'attempt', key, profile: decision.profile.name });
+      ctx.reached = true;
+      this.onEvent({ type: 'attempt', key, profile: ctx.decision.profile.name });
 
       try {
-        const ctx = {
+        const adapterCtx = {
           candidate,
           apiKey: this.registry.apiKey(candidate.provider.id),
           ...(this.registry.accountId(candidate.provider.id)
             ? { accountId: this.registry.accountId(candidate.provider.id) as string }
             : {}),
-          request: req,
+          request: ctx.req,
           signal: attempt.signal,
           fetchImpl: this.fetchImpl,
         };
 
-        if (streaming) {
-          const raw = await adapter.stream(ctx);
+        if (ctx.streaming) {
+          const raw = await adapter.stream(adapterCtx);
           const ms = Date.now() - t0;
           // Headers are in. From here the timeout must not apply.
           attempt.clearTimer();
           this.health.success(key, ms);
           const trace: MeshTrace = {
             served_by: key,
-            profile: decision.profile.name,
+            profile: ctx.decision.profile.name,
             attempts,
             latency_ms: ms,
             cost_usd: 0,
           };
           this.onEvent({ type: 'success', key, ms });
+          handedOff = true;
           // Full teardown is deferred to stream end so the caller can still
           // abort a completion that is already flowing.
-          return { stream: this.meter(raw, candidate, trace, attempt.detach), trace };
+          return {
+            stream: this.meter(raw, candidate, trace, () => {
+              attempt.detach();
+              slot.release();
+            }),
+            trace,
+          };
         }
 
-        const res = await adapter.chat(ctx);
+        const res = await adapter.chat(adapterCtx);
         const ms = Date.now() - t0;
         attempt.detach();
         this.health.success(key, ms);
@@ -271,9 +386,9 @@ export class InferenceMesh {
           ...res,
           mesh: {
             served_by: key,
-            profile: decision.profile.name,
+            profile: ctx.decision.profile.name,
             attempts,
-            latency_ms: Date.now() - started,
+            latency_ms: Date.now() - ctx.started,
             cost_usd: cost,
           },
         };
@@ -293,18 +408,11 @@ export class InferenceMesh {
           await this.ledger.flush();
           throw new MeshError(message, pe.status, 'provider_error', { attempts });
         }
+        return undefined;
       }
+    } finally {
+      if (!handedOff) slot.release();
     }
-
-    await this.ledger.flush();
-    this.onEvent({ type: 'exhausted', profile: decision.profile.name });
-    throw new MeshError(
-      `all ${attempts.length} attempt(s) failed: ` +
-        attempts.map((a) => `${a.key} (${a.status ?? '-'}: ${a.error})`).join('; '),
-      503,
-      'all_providers_failed',
-      { attempts, rejected: decision.rejected },
-    );
   }
 
   /**
@@ -326,40 +434,55 @@ export class InferenceMesh {
     let tail = '';
     let usage: Usage | undefined;
 
-    return stream.pipeThrough(
-      new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-          controller.enqueue(chunk);
-          // Only the last few KB can hold the usage chunk; keep the window small
-          // so a long completion does not accumulate in memory.
-          tail = (tail + decoder.decode(chunk, { stream: true })).slice(-8192);
-        },
-        async flush() {
-          for (const line of tail.split('\n')) {
-            if (!line.startsWith('data:')) continue;
-            const payload = line.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(payload) as { usage?: Usage };
-              if (parsed.usage) usage = parsed.usage;
-            } catch {
-              /* partial JSON in the tail window; the next line may still parse */
-            }
+    const meter = new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+        // Only the last few KB can hold the usage chunk; keep the window small
+        // so a long completion does not accumulate in memory.
+        tail = (tail + decoder.decode(chunk, { stream: true })).slice(-8192);
+      },
+      async flush() {
+        for (const line of tail.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(payload) as { usage?: Usage };
+            if (parsed.usage) usage = parsed.usage;
+          } catch {
+            /* partial JSON in the tail window; the next line may still parse */
           }
-          if (usage) {
-            trace.cost_usd = costOf(model, usage.prompt_tokens, usage.completion_tokens);
-            await ledger.record(candidate.key, usage.total_tokens);
-          }
-          await ledger.flush();
-          onEvent({
-            type: 'success',
-            key: candidate.key,
-            costUsd: trace.cost_usd,
-            ...(usage ? { usage } : {}),
-          });
-          done();
-        },
-      }),
-    );
+        }
+        if (usage) {
+          trace.cost_usd = costOf(model, usage.prompt_tokens, usage.completion_tokens);
+          await ledger.record(candidate.key, usage.total_tokens);
+        }
+        await ledger.flush();
+        onEvent({
+          type: 'success',
+          key: candidate.key,
+          costUsd: trace.cost_usd,
+          ...(usage ? { usage } : {}),
+        });
+      },
+    });
+
+    /**
+     * Piped by hand rather than with `pipeThrough`, so teardown has one home.
+     *
+     * `flush` runs only when the stream ends normally. A client that hangs up
+     * mid-answer cancels the readable, which errors the writable and rejects
+     * this pipe — and if teardown lived in `flush` the provider's concurrency
+     * slot would then be held for the life of the process, which is the exact
+     * leak the limiter exists to prevent. A transformer `cancel` would read
+     * better but is not in every runtime this ships to; a settled `pipeTo` is.
+     */
+    stream
+      .pipeTo(meter.writable)
+      .catch(() => {
+        /* the consumer walked away, or the provider cut the stream */
+      })
+      .finally(done);
+    return meter.readable;
   }
 }

@@ -206,6 +206,30 @@ candidate was rejected, without touching the network.
 A `400` or `422` is the request's fault and will fail identically at every provider, so the chain
 stops immediately. A `401` **is** retried, because the next provider does not share the bad key.
 
+### How many at once
+
+Rate limits come in two shapes and only one of them is a window. `quota` counts requests per
+minute and per day; `maxConcurrent` counts the ones happening *right now*. A provider that serves
+one request at a time will 429 a fan-out while its per-minute budget is barely touched, so
+counting the window alone cannot see it.
+
+```jsonc
+{ "id": "some-provider", "maxConcurrent": 2, "models": [ /* ... */ ] }
+```
+
+It is scoped to the provider, not the model: the limit belongs to the credential, so two models
+behind one key share the account's slots.
+
+A busy provider is skipped, not waited for — falling over to a free one is what the chain is for.
+Only when **every** candidate is busy does the request queue, FIFO, for up to
+`INFERENCEMESH_CONCURRENCY_WAIT_MS` (default 30000; set `0` to fail instead). That is the
+single-provider case: a 503 now is worse than an answer a moment later.
+
+Omit `maxConcurrent` and the provider is unlimited, which is the shipped default. A limit nobody
+has measured would throttle real capacity on a guess, so `providers.default.json` sets none —
+find yours in the provider's docs, or by watching 429s arrive in bursts rather than at a steady
+rate.
+
 ## Keeping the registry honest
 
 `providers.default.json` ships **free tiers only, priced at 0** — the one number about a provider

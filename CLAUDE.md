@@ -19,6 +19,8 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 - `src/ledger.ts` — free-tier accounting (per minute, per day, tokens per day).
   Storage is pluggable.
 - `src/health.ts` — circuit breaker, latency EWMA, success rate.
+- `src/concurrency.ts` — per-provider semaphore. Counts what is in flight now,
+  which no window-based counter can see.
 - `src/mesh.ts` — route, attempt, fall back, book. **The only place allowed to retry.**
 - `src/providers/*.ts` — adapters. **Must not retry and must not read the registry.**
 - `src/gateway.ts` — Fetch-API handler shared by Node, Workers and Deno.
@@ -29,7 +31,7 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 ## Commands
 
 ```sh
-npm test                 # build, then 92 tests — no network needed
+npm test                 # build, then 120 tests — no network needed
 npm run build
 npm run build:binary     # single executable, runs without Node installed
 node dist/src/cli.js route free --language=ja   # explain a decision, offline
@@ -59,6 +61,12 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   the attempt count.
 - **Never fill an unavailable value with 0.** Absent usage means no cost is
   recorded, not a cost of zero.
+- 🔴 **Never guess a `maxConcurrent`.** Same rule as prices: an unobserved limit
+  throttles real capacity and nothing errors. Absent means unlimited, and that
+  is why `providers.default.json` sets none.
+- 🔴 **`Number(env['X'] ?? default)` is a bug, not a shorthand.** A var that is
+  set but empty — which is what `FOO=` in a `.env` produces — parses as 0, so a
+  blank line silently means port 0 and "never queue". Use `intFromEnv`.
 
 ## Design decisions worth reading before changing
 
@@ -76,6 +84,20 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   which happened.
 - **Quota is reserved at admission and refunded on failure**, so concurrent
   callers cannot both take the last free slot.
+- **Rate limits come in two shapes and only one is a window.** `quota` counts
+  per minute and per day; `maxConcurrent` counts what is happening now. A
+  provider serving one request at a time 429s a fan-out with its per-minute
+  budget barely touched.
+- **A busy provider is skipped, not waited for.** Queueing while a free
+  candidate sits in the chain spends the whole point of the router on patience.
+  Only when *every* candidate is busy does the request queue — the
+  single-provider case, where a 503 now is worse than an answer in a moment.
+- **Concurrency is scoped to the provider, not the candidate.** The limit
+  belongs to the credential; keying on `provider/model` would let a two-model
+  provider run twice its limit.
+- **A streaming answer holds its slot to the last byte**, and teardown hangs off
+  the pipe settling rather than off `flush`, which a cancelled stream never
+  reaches.
 - **Untried candidates are scored optimistically**, capped by a small margin.
   With a generated registry every term ties and the alphabetical tie-break would
   hand one model all the traffic while the rest were never measured.
@@ -86,4 +108,7 @@ Features that type-check and pass tests still fail when run. Bugs found only by
 running it: `process.exit()` discarding piped stdout; `readline/promises` never
 settling its second question on a pipe; `import.meta.url` vanishing in a
 CommonJS bundle; a setup page that 401'd because browsers do not send URL
-fragments. Run the thing, including through a pipe and inside the container.
+fragments; `node.pipe(res)` not destroying its source, so one client hanging up
+mid-stream held a `maxConcurrent: 1` provider's slot **indefinitely** while every
+unit test passed — the tests cancelled the stream and the server never did.
+Run the thing, including through a pipe and inside the container.

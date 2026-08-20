@@ -40,6 +40,17 @@ export function validateRegistryFile(raw: unknown): RegistryFile {
     if (!Array.isArray(p.models) || p.models.length === 0) {
       throw new Error(`registry: provider '${p.id}' has no models`);
     }
+    // 0 would mean "never routable", which is what `disabled` is for. Rejecting
+    // it here keeps a typo from silently removing a provider from every chain.
+    if (
+      p.maxConcurrent !== undefined &&
+      (!Number.isInteger(p.maxConcurrent) || p.maxConcurrent < 1)
+    ) {
+      throw new Error(
+        `registry: provider '${p.id}' has an invalid maxConcurrent ` +
+          `(${String(p.maxConcurrent)}); expected an integer >= 1, or omit it for unlimited`,
+      );
+    }
     const modelIds = new Set<string>();
     for (const m of p.models) {
       if (!m.id) throw new Error(`registry: provider '${p.id}' has a model without an id`);

@@ -141,6 +141,21 @@ export interface ProviderConfig {
   signupSteps?: Record<string, string[]>;
   /** Extra headers merged into every request (e.g. OpenRouter attribution). */
   headers?: Record<string, string>;
+  /**
+   * How many requests this provider will serve at once, across all its models.
+   *
+   * A distinct limit from `quota`: rpm and rpd are counted over a window, this
+   * is counted right now. A provider allowing one concurrent request 429s a
+   * fan-out while its per-minute budget is barely touched, so counting the
+   * window alone cannot see it.
+   *
+   * Scoped to the provider because the limit belongs to the credential, not
+   * the model — two models behind one key share the account's slots.
+   *
+   * Absent means unlimited, which is the honest default: a limit nobody has
+   * observed would throttle real capacity on a guess.
+   */
+  maxConcurrent?: number;
   models: ModelEntry[];
   disabled?: boolean;
 }

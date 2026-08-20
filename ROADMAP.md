@@ -2,12 +2,17 @@
 
 ## Now
 
-- **Per-provider concurrency limits.** The ledger counts requests per minute but
-  not how many are in flight. Coding agents fan out, so a provider that allows
-  one concurrent request returns a burst of 429s. Measured: the same agent task
-  ran 6 attempts with 3 failures against a single provider, and 3 attempts with
-  0 failures once a second provider was available. More candidates hide it; a
-  semaphore would fix it.
+- **Observed concurrency limits.** The semaphore exists (`maxConcurrent`, see
+  the README), but no provider in `providers.default.json` sets one, because
+  none has been measured. A number nobody has observed would throttle real
+  capacity on a guess. `probe` could find it: raise the parallelism until 429s
+  arrive in a burst rather than at a steady rate, and record the level with the
+  date it was measured, the way prices are.
+
+  One lead already: on 2026-08-20 `llm7` answered a second in-flight request
+  with `429 Too many concurrent requests for this client. Retry after 10
+  seconds.` — it enforces a concurrency limit and says so in words, but not
+  what the limit is. That number has to be found by climbing, not read.
 - **Measured language competence.** `languages` scores are hand-written
   estimates today, which does not scale to a generated registry and is the wrong
   way round for non-English users — the thing that matters most is the thing
