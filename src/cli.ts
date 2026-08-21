@@ -13,14 +13,17 @@
  * exit code you can put on a schedule.
  */
 
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { registryFrom } from './config.js';
+import { CATALOGS } from './catalogs.js';
+import { registryFrom, validateRegistryFile, type RegistryFile } from './config.js';
 import { InferenceMesh } from './mesh.js';
 import { Router } from './router.js';
 import { blendedPrice, maxPrivacyOf } from './registry.js';
 import { configFromEnv, loadRegistryFile, main as serveMain } from './server/node.js';
 import { runSetup } from './setup.js';
+import { syncModels } from './sync.js';
 import { ProviderError } from './providers/base.js';
 import type { Capability, PrivacyLevel } from './types.js';
 
@@ -139,7 +142,7 @@ async function cmdRoute(argv: string[]): Promise<number> {
     const t = s.terms;
     console.log(
       `  ${i + 1}. ${s.candidate.key.padEnd(48)} score=${s.score.toFixed(3)}  ` +
-        `q=${(t['quality'] ?? 0).toFixed(2)} cost=${(t['cost'] ?? 0).toFixed(2)} ` +
+        `q=${(t['quality'] ?? 0).toFixed(2)}${s.candidate.model.quality === undefined ? '?' : ' '}cost=${(t['cost'] ?? 0).toFixed(2)} ` +
         `lat=${(t['latency'] ?? 0).toFixed(2)} lang=${(t['language'] ?? 0).toFixed(2)}  ` +
         `$${blendedPrice(s.candidate.model).toFixed(2)}/MTok  ${maxPrivacyOf(s.candidate)}`,
     );
@@ -149,6 +152,111 @@ async function cmdRoute(argv: string[]): Promise<number> {
     for (const r of decision.rejected) console.log(`  - ${r.key.padEnd(48)} ${r.reason}`);
   }
   return decision.ranked.length > 0 ? 0 : 1;
+}
+
+/**
+ * Generate registry entries from a provider's own catalog.
+ *
+ *   inferencemesh sync --provider=redpill --out=providers.local.json
+ *
+ * Machine facts are refreshed every run; `quality` and `languages` are never
+ * written, because a catalog does not know them and a plausible guess is worse
+ * than a gap. See src/sync.ts.
+ */
+async function cmdSync(argv: string[]): Promise<number> {
+  const arg = (n: string) => argv.find((a) => a.startsWith(`--${n}=`))?.split('=').slice(1).join('=');
+  const dryRun = argv.includes('--dry-run');
+
+  const which = arg('provider');
+  if (!which) fail(`usage: inferencemesh sync --provider=<${Object.keys(CATALOGS).join('|')}> [--out=FILE] [--dry-run]`);
+  const catalog = CATALOGS[which as string];
+  if (!catalog) fail(`unknown catalog '${which}'. Known: ${Object.keys(CATALOGS).join(', ')}`);
+
+  const out = resolve(arg('out') ?? `providers.${which}.json`);
+  // The shipped registry is free tiers only — 0 is the one price that cannot go
+  // stale in a way that lies to you. Generating paid entries into it would
+  // quietly break that guarantee for everyone who installs this.
+  const intoDefault = out.endsWith('providers.default.json');
+
+  const key = catalog.apiKeyEnv ? process.env[catalog.apiKeyEnv] : undefined;
+  if (catalog.apiKeyEnv && !key) {
+    fail(`${catalog.apiKeyEnv} is not set — sync reads ${catalog.url}, which needs it.`);
+  }
+
+  const res = await fetch(catalog.url, {
+    headers: key ? { authorization: `Bearer ${key}` } : {},
+  });
+  if (!res.ok) fail(`${catalog.url} returned ${res.status}`);
+  const fetched = catalog.read(await res.json());
+  console.log(`${catalog.id}: ${fetched.length} model(s) in the catalog`);
+  console.log(`note: ${catalog.caveat}`);
+
+  let file: RegistryFile;
+  try {
+    file = validateRegistryFile(JSON.parse(await readFile(out, 'utf8')) as unknown);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    file = { providers: [] };
+  }
+
+  let provider = file.providers.find((p) => p.id === catalog.id);
+  if (!provider) {
+    provider = {
+      id: catalog.id,
+      kind: 'openai-compat',
+      baseUrl: catalog.url.replace(/\/models$/, ''),
+      apiKeyEnv: catalog.apiKeyEnv ?? '',
+      maxPrivacy: 'internal',
+      models: [],
+    };
+    file.providers.push(provider);
+  }
+
+  // Today, in UTC, so a run at 23:00 in one timezone stamps the same date as
+  // the identical run somewhere else.
+  const today = new Date().toISOString().slice(0, 10);
+  const { models, changes, warnings, hazards } = syncModels(provider.models, fetched, today);
+
+  const paid = models.filter((m) => !m.disabled && (m.price.inPerMTok !== 0 || m.price.outPerMTok !== 0));
+  if (intoDefault && paid.length > 0) {
+    fail(
+      `refusing to write ${paid.length} paid model(s) into providers.default.json.\n` +
+        `  The shipped registry is free tiers only. Use --out=providers.local.json.`,
+    );
+  }
+
+  if (changes.length === 0) console.log('\nno changes.');
+  else {
+    console.log(`\n${changes.length} change(s):`);
+    for (const c of changes) console.log(`  ${c.kind.padEnd(18)} ${c.id.padEnd(42)} ${c.detail}`);
+  }
+  if (warnings.length) {
+    console.log(`\n${warnings.length} warning(s):`);
+    for (const w of warnings) console.log(`  - ${w}`);
+  }
+  if (hazards.length) {
+    console.error(`\n${hazards.length} hazard(s):`);
+    for (const h of hazards) console.error(`  ! ${h}`);
+  }
+
+  const unrated = models.filter((m) => m.quality === undefined && !m.disabled).length;
+  if (unrated) {
+    console.log(
+      `\n${unrated} model(s) are unrated. Routing scores them neutrally; rate the ones ` +
+        `you care about by hand to make 'best' mean anything.`,
+    );
+  }
+
+  provider.models = models;
+  if (dryRun) {
+    console.log(`\ndry run — ${out} not written.`);
+    return hazards.length > 0 ? 3 : 0;
+  }
+  await writeFile(out, `${JSON.stringify(file, null, 2)}\n`);
+  console.log(`\nwrote ${out}`);
+  // Non-zero on a hazard so a scheduled sync fails instead of scrolling past
+  // the one line that says confidential text is going somewhere it should not.
+  return hazards.length > 0 ? 3 : 0;
 }
 
 async function run(): Promise<void> {
@@ -172,11 +280,14 @@ async function run(): Promise<void> {
       process.exitCode = await runSetup(cfg.registryPath, envPath);
       break;
     }
+    case 'sync':
+      process.exitCode = await cmdSync(argv);
+      break;
     case 'serve':
       await serveMain();
       break;
     default:
-      fail('usage: inferencemesh <setup|probe|route|serve> [options]');
+      fail('usage: inferencemesh <setup|probe|route|sync|serve> [options]');
   }
 }
 

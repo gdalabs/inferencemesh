@@ -21,6 +21,17 @@ import {
 /** Score used for a language the registry says nothing about. */
 export const DEFAULT_LANGUAGE_SCORE = 0.6;
 
+/**
+ * Score used for a model nobody has rated.
+ *
+ * Neutral on purpose, not optimistic. Latency and reliability are scored
+ * optimistically when untried because one request *measures* them and the
+ * optimism is repaid; quality is never measured by routing, so an optimistic
+ * default would park every unrated model above every rated one permanently.
+ * The middle says "unknown" and lets the other terms decide.
+ */
+export const DEFAULT_QUALITY_SCORE = 0.5;
+
 export const DEFAULT_PROFILES: Record<string, MeshProfile> = {
   free: {
     name: 'free',
@@ -157,6 +168,11 @@ export class Registry {
  */
 export function blendedPrice(model: ModelEntry): number {
   return model.price.inPerMTok * 0.75 + model.price.outPerMTok * 0.25;
+}
+
+/** A model's quality, or the neutral stand-in when it is unrated. */
+export function qualityScore(model: ModelEntry): number {
+  return model.quality ?? DEFAULT_QUALITY_SCORE;
 }
 
 export function isFree(model: ModelEntry): boolean {

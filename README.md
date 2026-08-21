@@ -230,6 +230,53 @@ has measured would throttle real capacity on a guess, so `providers.default.json
 find yours in the provider's docs, or by watching 429s arrive in bursts rather than at a steady
 rate.
 
+## Generating a registry
+
+A hand-written registry is a snapshot of a market that moves weekly, and a
+hand-written price is a claim about a day that has passed. `sync` reads a
+provider's own catalog and writes the parts a machine can know:
+
+```sh
+inferencemesh sync --provider=redpill --out=providers.local.json --dry-run
+```
+
+Refreshed every run: existence, context window, capabilities, price — stamped
+with `priceVerifiedAt` for the day the catalog was read, because the catalog
+*is* the provider's pricing page.
+
+Never written: `quality` and `languages`. A catalog does not know whether a
+model is any good or whether it can hold a conversation in Japanese, and a
+plausible guess there silently reorders the `best` profile and mis-serves every
+non-English caller — the same failure as an unverified price, with no invoice
+to catch it. New entries come out unrated and score neutrally until you rate
+them.
+
+Also never written: `maxPrivacy` on an entry that already exists. Comparing the
+catalog against it cannot tell "a human raised this" from "the vendor
+downgraded it", and those need opposite responses. What the catalog supports is
+recorded separately in `evidencePrivacy`, so the two can be diffed against each
+other. If your file allows more than the catalog supports, sync exits non-zero
+until you either lower it or record a `privacyVerifiedAt` — and it goes loud
+again the moment the catalog's own answer changes, which is exactly when an
+old sign-off stops meaning anything.
+
+A model that disappears from a catalog is disabled, not deleted: deleting would
+throw away your rating and make the disappearance invisible on the next diff.
+
+### What a catalog cannot tell you
+
+Absent is not denied. RedPill lists 14 models with no declared parameters at
+all, six of them TEE-hosted, and at least one of those answers tool calls
+perfectly well. Sync records only `text` for those and warns; it never writes
+"no tools" on a claim nobody made, and it never overwrites capabilities you
+recorded after probing.
+
+`is_tee: true` earns `internal`, never `confidential`. It is a vendor asserting
+something about itself in a JSON field, nothing has checked an attestation, and
+on RedPill the TEE operator is frequently not the vendor you assume — the
+`providers` list also contains `chutes`, `near-ai`, `tinfoil` and `secretai`,
+and a model naming several gives the caller no way to choose.
+
 ## Keeping the registry honest
 
 `providers.default.json` ships **free tiers only, priced at 0** — the one number about a provider

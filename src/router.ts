@@ -21,6 +21,7 @@ import {
   isFree,
   languageScore,
   maxPrivacyOf,
+  qualityScore,
   servesPrivacy,
   type Registry,
 } from './registry.js';
@@ -161,7 +162,7 @@ export class Router {
       const relTerm = untried ? 1 : Math.min(health?.successRate(c.key) ?? 1, 1 - EXPLORE_MARGIN);
 
       const langTerm = languageScore(c.model, req.language);
-      const qualTerm = c.model.quality;
+      const qualTerm = qualityScore(c.model);
 
       const terms = {
         quality: qualTerm,

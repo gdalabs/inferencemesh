@@ -67,8 +67,21 @@ export function validateRegistryFile(raw: unknown): RegistryFile {
       if (!m.price || !Number.isFinite(m.price.inPerMTok) || !Number.isFinite(m.price.outPerMTok)) {
         throw new Error(`registry: ${p.id}/${m.id} has an invalid price`);
       }
-      if (!Number.isFinite(m.quality) || m.quality < 0 || m.quality > 1) {
-        throw new Error(`registry: ${p.id}/${m.id} quality must be within 0..1`);
+      // Absent is allowed and means unrated. A present value still has to be a
+      // real number in range: `quality: null` or `"0.8"` must not slip through
+      // as "unrated", because that reads as a deliberate omission when it is a
+      // broken one.
+      if (m.quality !== undefined && (!Number.isFinite(m.quality) || m.quality < 0 || m.quality > 1)) {
+        throw new Error(`registry: ${p.id}/${m.id} quality must be within 0..1, or absent if unrated`);
+      }
+      if (
+        m.privacyVerifiedAt !== undefined &&
+        !/^\d{4}-\d{2}-\d{2}$/.test(m.privacyVerifiedAt)
+      ) {
+        throw new Error(
+          `registry: ${p.id}/${m.id} has an invalid privacyVerifiedAt ` +
+            `('${m.privacyVerifiedAt}'); expected YYYY-MM-DD`,
+        );
       }
       // A paid model must carry the date its price was checked. Free tiers are
       // exempt because 0 is true by definition; every other number rots.

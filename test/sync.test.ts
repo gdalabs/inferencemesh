@@ -1,0 +1,299 @@
+import { strict as assert } from 'node:assert';
+import { test, describe } from 'node:test';
+
+import { REDPILL } from '../src/catalogs.js';
+import { validateRegistryFile } from '../src/config.js';
+import { DEFAULT_QUALITY_SCORE, qualityScore } from '../src/registry.js';
+import { syncModels, type CatalogModel } from '../src/sync.js';
+import type { ModelEntry } from '../src/types.js';
+
+const TODAY = '2026-08-21';
+
+function catalogModel(over: Partial<CatalogModel> = {}): CatalogModel {
+  return {
+    id: 'vendor/model',
+    capabilities: ['text'],
+    undeclared: false,
+    contextWindow: 8000,
+    price: { inPerMTok: 1, outPerMTok: 2 },
+    ...over,
+  };
+}
+
+function entry(over: Partial<ModelEntry> = {}): ModelEntry {
+  return {
+    id: 'vendor/model',
+    capabilities: ['text'],
+    contextWindow: 8000,
+    price: { inPerMTok: 1, outPerMTok: 2 },
+    priceVerifiedAt: '2026-01-01',
+    ...over,
+  };
+}
+
+describe('sync — what a catalog may write', () => {
+  test('a new model is added unrated, not guessed', () => {
+    // The whole point. A catalog knows the price and nothing about how good
+    // the model is; writing a plausible 0.7 would reorder `best` on a number
+    // nobody measured.
+    const r = syncModels([], [catalogModel()], TODAY);
+    const m = r.models[0] as ModelEntry;
+    assert.equal(m.quality, undefined);
+    assert.equal(m.languages, undefined);
+    assert.equal(r.changes[0]?.kind, 'added');
+  });
+
+  test('a paid price is stamped with the day it was read', () => {
+    const r = syncModels([], [catalogModel()], TODAY);
+    assert.equal((r.models[0] as ModelEntry).priceVerifiedAt, TODAY);
+  });
+
+  test('a free price carries no stamp, because 0 cannot go stale', () => {
+    const r = syncModels([], [catalogModel({ price: { inPerMTok: 0, outPerMTok: 0 } })], TODAY);
+    assert.equal((r.models[0] as ModelEntry).priceVerifiedAt, undefined);
+  });
+
+  test('human judgement survives a sync', () => {
+    const prior = entry({
+      quality: 0.72,
+      languages: { ja: 0.85 },
+      quota: { requestsPerMinute: 5 },
+    });
+    const r = syncModels([prior], [catalogModel()], TODAY);
+    const m = r.models[0] as ModelEntry;
+    assert.equal(m.quality, 0.72);
+    assert.deepEqual(m.languages, { ja: 0.85 });
+    assert.deepEqual(m.quota, { requestsPerMinute: 5 });
+  });
+
+  test('a price change is applied and reported', () => {
+    const r = syncModels(
+      [entry()],
+      [catalogModel({ price: { inPerMTok: 3, outPerMTok: 9 } })],
+      TODAY,
+    );
+    assert.equal(r.changes[0]?.kind, 'repriced');
+    assert.match(r.changes[0]?.detail as string, /\$1\/\$2 per MTok -> \$3\/\$9 per MTok/);
+    assert.deepEqual((r.models[0] as ModelEntry).price, { inPerMTok: 3, outPerMTok: 9 });
+  });
+
+  test('an unchanged catalog produces no changes at all', () => {
+    // Churn is the failure mode that kills a scheduled sync: if every run
+    // reports something, nobody reads the run that reports the real thing.
+    const first = syncModels([], [catalogModel()], TODAY);
+    const second = syncModels(first.models, [catalogModel()], TODAY);
+    assert.deepEqual(second.changes, []);
+    assert.deepEqual(second.models, first.models);
+  });
+});
+
+describe('sync — what a catalog may not erase', () => {
+  test('a silent catalog does not overwrite probed capabilities', () => {
+    // `undeclared` means the catalog said nothing, which is not the same as
+    // saying "no tools". RedPill ships 14 such models and at least one of them
+    // answers fine.
+    const prior = entry({ capabilities: ['text', 'tools', 'json'] });
+    const r = syncModels([prior], [catalogModel({ capabilities: ['text'], undeclared: true })], TODAY);
+    assert.deepEqual((r.models[0] as ModelEntry).capabilities, ['text', 'tools', 'json']);
+    assert.equal(r.changes.length, 0);
+    assert.equal(r.warnings.length, 1);
+    assert.match(r.warnings[0] as string, /absent is not denied/);
+  });
+
+  test('a declaring catalog does overwrite them, and says so', () => {
+    const prior = entry({ capabilities: ['text'] });
+    const r = syncModels([prior], [catalogModel({ capabilities: ['text', 'vision'] })], TODAY);
+    assert.deepEqual((r.models[0] as ModelEntry).capabilities, ['text', 'vision']);
+    assert.equal(r.changes[0]?.kind, 'capabilities');
+  });
+
+  test('a model that leaves the catalog is disabled, not deleted', () => {
+    const prior = entry({ id: 'vendor/retired', quality: 0.9 });
+    const r = syncModels([prior], [], TODAY);
+    const m = r.models[0] as ModelEntry;
+    assert.equal(m.disabled, true);
+    assert.equal(m.quality, 0.9, 'deleting would throw away the rating');
+    assert.equal(r.changes[0]?.kind, 'vanished');
+  });
+
+  test('a disabled model that returns is reported, never re-enabled', () => {
+    // Re-enabling would undo a deliberate "I do not want this one".
+    const r = syncModels([entry({ disabled: true })], [catalogModel()], TODAY);
+    assert.equal((r.models[0] as ModelEntry).disabled, true);
+    assert.equal(r.changes[0]?.kind, 'returned');
+  });
+
+  test('a vanished model already disabled does not re-report every run', () => {
+    const r = syncModels([entry({ disabled: true })], [], TODAY);
+    assert.deepEqual(r.changes, []);
+  });
+});
+
+describe('sync — privacy is the human half', () => {
+  const tee = catalogModel({ maxPrivacy: 'internal', note: 'TEE claimed by the vendor' });
+
+  test('a new entry takes the catalog tier, and records it as evidence', () => {
+    const m = syncModels([], [tee], TODAY).models[0] as ModelEntry;
+    assert.equal(m.maxPrivacy, 'internal');
+    assert.equal(m.evidencePrivacy, 'internal');
+  });
+
+  test('a tier a human raised is never overwritten', () => {
+    // The bug this pins: comparing the catalog against maxPrivacy cannot tell
+    // "a human raised it" from "the vendor downgraded it", and lowering it
+    // silently erased a decision the design says is the human's to make.
+    const prior = entry({ maxPrivacy: 'confidential', evidencePrivacy: 'internal' });
+    const m = syncModels([prior], [tee], TODAY).models[0] as ModelEntry;
+    assert.equal(m.maxPrivacy, 'confidential');
+  });
+
+  test('a tier above the evidence with nobody signing off is a hazard', () => {
+    const prior = entry({ maxPrivacy: 'confidential', evidencePrivacy: 'internal' });
+    const r = syncModels([prior], [tee], TODAY);
+    assert.equal(r.hazards.length, 1);
+    assert.match(r.hazards[0] as string, /nothing records who checked/);
+  });
+
+  test('a dated sign-off keeps the run quiet while the evidence holds', () => {
+    const prior = entry({
+      maxPrivacy: 'confidential',
+      evidencePrivacy: 'internal',
+      privacyVerifiedAt: '2026-08-21',
+    });
+    const r = syncModels([prior], [tee], TODAY);
+    assert.deepEqual(r.hazards, []);
+    assert.match(r.warnings[0] as string, /on a check dated 2026-08-21/);
+  });
+
+  test('evidence moving makes an old sign-off stale again', () => {
+    // A vendor dropping the TEE claim is exactly when a year-old attestation
+    // stops meaning anything.
+    const prior = entry({
+      maxPrivacy: 'confidential',
+      evidencePrivacy: 'confidential',
+      privacyVerifiedAt: '2026-01-01',
+    });
+    const r = syncModels([prior], [tee], TODAY);
+    assert.equal(r.hazards.length, 1);
+    assert.match(r.hazards[0] as string, /that support just changed/);
+    assert.equal(r.changes[0]?.kind, 'privacy-evidence');
+  });
+
+  test('a tier at or below the evidence is nobody-s business', () => {
+    const prior = entry({ maxPrivacy: 'public', evidencePrivacy: 'internal' });
+    const r = syncModels([prior], [tee], TODAY);
+    assert.deepEqual(r.hazards, []);
+  });
+});
+
+describe('catalog reader — redpill', () => {
+  const raw = (over: Record<string, unknown> = {}) => ({
+    data: [
+      {
+        id: 'phala/thing',
+        name: 'Phala: Thing',
+        context_length: 131072,
+        is_tee: true,
+        providers: ['phala'],
+        pricing: { prompt: '0.0000003', completion: '0.0000015' },
+        input_modalities: ['text', 'image'],
+        supported_parameters: ['tools', 'structured_outputs'],
+        ...over,
+      },
+    ],
+  });
+
+  test('per-token becomes per-million with no float dust', () => {
+    // 0.0000002 * 1e6 is 0.19999999999999998. Left alone it diffs against a
+    // hand-written 0.2 forever and reports a price change that never happened.
+    const m = REDPILL.read(raw({ pricing: { prompt: '0.0000002', completion: '0.0000004' } }))[0];
+    assert.equal(m?.price.inPerMTok, 0.2);
+    assert.equal(m?.price.outPerMTok, 0.4);
+  });
+
+  test('the published price is reproduced exactly', () => {
+    // Cross-checked against redpill.ai/pricing on 2026-08-21: $0.30 / $1.50.
+    const m = REDPILL.read(raw())[0];
+    assert.equal(m?.price.inPerMTok, 0.3);
+    assert.equal(m?.price.outPerMTok, 1.5);
+  });
+
+  test('capabilities come from modalities and parameters', () => {
+    const m = REDPILL.read(raw())[0];
+    assert.deepEqual(m?.capabilities, ['text', 'vision', 'tools', 'json']);
+  });
+
+  test('`code` is never derived, because no field describes it', () => {
+    const m = REDPILL.read(raw())[0];
+    assert.equal(m?.capabilities.includes('code'), false);
+  });
+
+  test('an empty parameter list reads as undeclared, not as incapable', () => {
+    const m = REDPILL.read(raw({ supported_parameters: [], supported_features: [] }))[0];
+    assert.equal(m?.undeclared, true);
+    assert.deepEqual(m?.capabilities, ['text', 'vision']);
+  });
+
+  test('a TEE flag earns `internal`, never `confidential`', () => {
+    const m = REDPILL.read(raw())[0];
+    assert.equal(m?.maxPrivacy, 'internal');
+    assert.match(m?.note as string, /operator\(s\): phala/);
+  });
+
+  test('a relay is `public`, and the note says whose it is', () => {
+    const m = REDPILL.read(raw({ is_tee: false, providers: ['anthropic'] }))[0];
+    assert.equal(m?.maxPrivacy, 'public');
+    assert.match(m?.note as string, /relay to anthropic/);
+  });
+
+  test('an unreadable price is refused rather than defaulted to free', () => {
+    // Silently reading a broken price as 0 would put a paid model at the top
+    // of the `cheap` profile and skip the priceVerifiedAt requirement.
+    assert.throws(() => REDPILL.read(raw({ pricing: { prompt: null } })), /unreadable price/);
+    assert.throws(() => REDPILL.read(raw({ context_length: 0 })), /unreadable context_length/);
+  });
+
+  test('a response with no data array is an error, not an empty catalog', () => {
+    // An empty catalog would disable every model in the file.
+    assert.throws(() => REDPILL.read({ error: 'nope' }), /no `data` array/);
+  });
+});
+
+describe('registry — unrated models', () => {
+  test('an absent quality scores neutrally, not optimistically', () => {
+    // Optimism is repaid for latency because one request measures it. Nothing
+    // measures quality, so an optimistic default would park every unrated
+    // model above every rated one for good.
+    assert.equal(qualityScore({ ...entry(), quality: undefined }), DEFAULT_QUALITY_SCORE);
+    assert.equal(qualityScore({ ...entry(), quality: 0.9 }), 0.9);
+    assert.ok(DEFAULT_QUALITY_SCORE < 1);
+  });
+
+  test('validation accepts an absent quality and still rejects a broken one', () => {
+    const file = (q: unknown) => ({
+      providers: [
+        {
+          id: 'p',
+          kind: 'openai-compat',
+          baseUrl: 'https://x/v1',
+          apiKeyEnv: 'K',
+          maxPrivacy: 'internal',
+          models: [
+            {
+              id: 'm',
+              capabilities: ['text'],
+              contextWindow: 100,
+              price: { inPerMTok: 0, outPerMTok: 0 },
+              ...(q === 'omit' ? {} : { quality: q }),
+            },
+          ],
+        },
+      ],
+    });
+    assert.doesNotThrow(() => validateRegistryFile(file('omit')));
+    assert.doesNotThrow(() => validateRegistryFile(file(0.5)));
+    assert.throws(() => validateRegistryFile(file(null)), /within 0\.\.1/);
+    assert.throws(() => validateRegistryFile(file('0.8')), /within 0\.\.1/);
+    assert.throws(() => validateRegistryFile(file(2)), /within 0\.\.1/);
+  });
+});

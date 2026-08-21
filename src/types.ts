@@ -69,8 +69,15 @@ export interface ModelEntry {
   /**
    * Subjective general quality, 0..1. Hand-maintained; the point is *relative*
    * ordering inside one registry, not a benchmark claim.
+   *
+   * **Absent means unrated, and unrated is not a rating.** A generated registry
+   * cannot invent this — a catalog knows a model's price and context window but
+   * nothing about how good it is — so `sync` leaves it out rather than guessing,
+   * and scoring substitutes `DEFAULT_QUALITY_SCORE`. Writing a plausible number
+   * here instead would silently reorder the `best` profile with a value nobody
+   * ever measured, which is the same failure as an unverified price.
    */
-  quality: number;
+  quality?: number;
   /**
    * Per-language competence, 0..1. A missing tag falls back to
    * `languages['*']`, then to `DEFAULT_LANGUAGE_SCORE`.
@@ -82,9 +89,47 @@ export interface ModelEntry {
    * fail, it silently reorders the 'cheap' profile.
    */
   priceVerifiedAt?: string;
-  /** Highest sensitivity this model may serve. Defaults to the provider's. */
+  /**
+   * Highest sensitivity this model may serve. Defaults to the provider's.
+   *
+   * Human-owned. `sync` sets it when it first creates an entry and never
+   * touches it again: raising a tier is a judgement made against evidence
+   * somebody checked, and a generator that overwrote it would erase that
+   * judgement on the next scheduled run.
+   */
   maxPrivacy?: PrivacyLevel;
+  /**
+   * The tier the provider's own catalog last supported, as opposed to the tier
+   * a human decided on. Machine-owned, refreshed on every sync, never routed on.
+   *
+   * It exists so the two questions stay separate. Comparing the catalog against
+   * `maxPrivacy` cannot tell "a human raised this above the catalog's floor"
+   * from "the vendor downgraded it" — and those need opposite responses. Diffing
+   * the catalog against its own previous answer says exactly which happened.
+   */
+  evidencePrivacy?: PrivacyLevel;
+  /**
+   * Date (YYYY-MM-DD) a human checked the evidence for a `maxPrivacy` that sits
+   * above what the catalog supports — an attestation read, a DPA signed.
+   *
+   * Same shape as `priceVerifiedAt` and for the same reason: the claim is only
+   * as good as the day it was checked. Without it every sync re-reports a
+   * decision that was made on purpose, and a report that is always red is one
+   * nobody reads. With it, sync stays quiet until the catalog's own evidence
+   * *changes*, which is the moment the check needs redoing.
+   */
+  privacyVerifiedAt?: string;
   quota?: Quota;
+  /**
+   * One line of provenance from whatever generated this entry.
+   *
+   * Informational only — nothing routes on it. It exists so the evidence sits
+   * next to the decision: "TEE claimed by the vendor; operator(s): chutes" is
+   * what a reader needs in order to judge whether `maxPrivacy` should be
+   * raised, and burying it in a commit message means it is not there when the
+   * question comes up.
+   */
+  note?: string;
   /** Excluded from routing while true. Keeps the entry around for diffing. */
   disabled?: boolean;
 }

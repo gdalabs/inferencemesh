@@ -24,10 +24,15 @@
 
 ## Next
 
-- **Generated registry.** `providers.default.json` is hand-maintained and covers
-  a fraction of what is reachable: six public catalogs list ~630 models. A `sync`
-  command could generate entries per provider, with a policy for whether that
-  provider's whole catalog is free, instead of curating model by model.
+- **More catalogs for `sync`.** The generator exists and RedPill is wired up
+  (68 models, prices and privacy evidence read from the provider itself). The
+  other five public catalogs — OpenRouter, NVIDIA, Chutes, ModelScope, OVHcloud
+  — need a reader each, plus a policy for whether a given catalog is free-tier
+  only, since `providers.default.json` may not take paid entries.
+- **Rate what sync cannot.** A generated entry is unrated and scores neutrally.
+  That is honest but it makes `best` meaningless across a large generated
+  registry. Ratings have to come from somewhere measurable — a held-out eval, or
+  a public leaderboard mapped onto model ids with the date it was read.
 - **Publish what discovery finds.** `scripts/discover-providers.mjs` reports to
   whoever runs it. The information gap it addresses is public, so the output
   should be too.

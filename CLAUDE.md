@@ -21,6 +21,10 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 - `src/health.ts` — circuit breaker, latency EWMA, success rate.
 - `src/concurrency.ts` — per-provider semaphore. Counts what is in flight now,
   which no window-based counter can see.
+- `src/sync.ts` — catalog in, registry entries out. Pure; the merge rules live
+  here. **Machine facts are refreshed, human judgement is preserved.**
+- `src/catalogs.ts` — per-provider catalog readers. Pure functions over parsed
+  JSON, so they test against a captured response with no network and no key.
 - `src/mesh.ts` — route, attempt, fall back, book. **The only place allowed to retry.**
 - `src/providers/*.ts` — adapters. **Must not retry and must not read the registry.**
 - `src/gateway.ts` — Fetch-API handler shared by Node, Workers and Deno.
@@ -31,11 +35,12 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 ## Commands
 
 ```sh
-npm test                 # build, then 120 tests — no network needed
+npm test                 # build, then 148 tests — no network needed
 npm run build
 npm run build:binary     # single executable, runs without Node installed
 node dist/src/cli.js route free --language=ja   # explain a decision, offline
 node dist/src/cli.js probe                      # call every candidate for real
+node dist/src/cli.js sync --provider=redpill --dry-run   # generate from a catalog
 node scripts/discover-providers.mjs             # find new free tiers; exit 10 = news
 ```
 
@@ -61,6 +66,17 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   the attempt count.
 - **Never fill an unavailable value with 0.** Absent usage means no cost is
   recorded, not a cost of zero.
+- 🔴 **`sync` must never write `quality` or `languages`.** A catalog cannot know
+  them. A plausible guess reorders `best` and mis-serves every non-English
+  caller, with no invoice to catch it. Absent means unrated; scoring uses
+  `DEFAULT_QUALITY_SCORE`, which is neutral rather than optimistic on purpose —
+  nothing measures quality later, so optimism would never be repaid.
+- 🔴 **`sync` must never overwrite `maxPrivacy` on an existing entry.** The
+  catalog's answer and a human's decision are different facts; keep the
+  catalog's in `evidencePrivacy` and diff it against its own previous value.
+  Overwriting erases the decision instead of surfacing the conflict.
+- 🔴 **Absent is not denied.** A catalog that declares no capabilities has said
+  nothing, not "no tools". Record `text`, warn, and leave probed values alone.
 - 🔴 **Never guess a `maxConcurrent`.** Same rule as prices: an unobserved limit
   throttles real capacity and nothing errors. Absent means unlimited, and that
   is why `providers.default.json` sets none.
@@ -98,6 +114,12 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
 - **A streaming answer holds its slot to the last byte**, and teardown hangs off
   the pipe settling rather than off `flush`, which a cancelled stream never
   reaches.
+- **A generated entry is disabled, never deleted, when it leaves a catalog.**
+  Deleting throws away a hand-written rating and makes the disappearance
+  invisible on the next diff — and that disappearance is the event worth seeing.
+- **Float dust is a churn bug, not a cosmetic one.** `0.0000002 * 1e6` is
+  0.19999999999999998, which diffs against a hand-written 0.2 forever. A sync
+  that reports a change every run is one nobody reads.
 - **Untried candidates are scored optimistically**, capped by a small margin.
   With a generated registry every term ties and the alphabetical tie-break would
   hand one model all the traffic while the rest were never measured.
