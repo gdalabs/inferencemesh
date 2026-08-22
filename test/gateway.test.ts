@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
+import { SETUP_HTML } from '../src/setup-ui.js';
 import { handleRequest } from '../src/gateway.js';
 import { InferenceMesh } from '../src/mesh.js';
 import { Registry } from '../src/registry.js';
@@ -282,5 +283,29 @@ describe('gateway — streaming', () => {
     assert.match(res.headers.get('content-type') ?? '', /text\/event-stream/);
     assert.equal(res.headers.get('x-mesh-served-by'), 'alpha/alpha-free');
     assert.match(await readAll(res.body as ReadableStream<Uint8Array>), /\[DONE\]/);
+  });
+});
+
+describe('the setup page is self-contained', () => {
+  test('nothing is loaded from another host', () => {
+    // The page is served with `default-src 'none'` precisely so it cannot
+    // fetch a third-party script while handling API keys. A literal external
+    // URL in the markup would be a request the CSP blocks at runtime and
+    // nobody notices until the page half-works.
+    const external = SETUP_HTML.match(/(?:src|href)\s*=\s*["']https?:\/\/[^"']+/gi) ?? [];
+    assert.deepEqual(external, []);
+  });
+
+  test('the token is read from the fragment, never from the query string', () => {
+    // A query string reaches the server and every access log in between; the
+    // fragment does not. This is also why /setup is served unauthenticated.
+    assert.match(SETUP_HTML, /location\.hash/);
+    assert.ok(!/location\.search/.test(SETUP_HTML));
+  });
+
+  test('no key is ever put in browser storage', () => {
+    for (const sink of ['localStorage', 'sessionStorage', 'document.cookie']) {
+      assert.ok(!SETUP_HTML.includes(sink), `${sink} must not hold a provider key`);
+    }
   });
 });

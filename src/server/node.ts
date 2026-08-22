@@ -9,6 +9,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { stdout } from 'node:process';
 import { Readable } from 'node:stream';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -348,7 +349,20 @@ export async function main(): Promise<void> {
     );
     // The token rides in the fragment: it is never sent to the server and never
     // reaches an access log, unlike a query string.
-    console.log(`[inferencemesh] add keys here: http://127.0.0.1:${cfg.port}/setup#${first}`);
+    //
+    // It is printed only to a terminal. Under systemd this line goes to the
+    // journal, where it outlives the process and is readable by more than the
+    // person who started it — and this token opens the endpoint that adds
+    // provider keys. Someone watching a terminal wants the clickable link;
+    // a log file must not become the place the credential lives.
+    if (stdout.isTTY) {
+      console.log(`[inferencemesh] add keys here: http://127.0.0.1:${cfg.port}/setup#${first}`);
+    } else {
+      console.log(
+        `[inferencemesh] add keys at http://127.0.0.1:${cfg.port}/setup#<token> ` +
+          '— token not printed to a non-terminal, see INFERENCEMESH_TOKENS',
+      );
+    }
   });
 
   const shutdown = () => {
