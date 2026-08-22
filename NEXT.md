@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = 7a7cd23（push済・PRIVATE）。テスト316件 全pass。
+現在地点: origin/main = 95d0deb（push済・PRIVATE）。テスト323件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -34,6 +34,13 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ 公式 OpenAI SDK で実測（commit bd57c0f）。models.list / completion / streaming /
+  エラー分類すべて通過。`/v1/models` に `created` を追加（SDK が必須として型付け・commit 03d92f9）
+- ✅ `version` コマンド追加（commit 28112b4）。配布バイナリに自分のバージョンを言う手段が無かった
+- ✅ setup ページのインライン JS を構文検査（commit 75e0508）。壊れても 200 で白紙を返すだけなので
+  既存テストは全部通ってしまう。わざと壊して発火を確認
+- ✅ 未記載だった route の3フラグを追記し、ドリフトをテストで固定（commit 37274a9）
 
 - ✅ `sync` が新規プロバイダ枠を `maxPrivacy: internal` で作っていたのを `public` に
   （commit 7a7cd23, push済）。機密性の判断を機械がしていた
