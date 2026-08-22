@@ -89,7 +89,30 @@ export class FileKeyStore implements KeyStore {
     return { ...this.baseEnv, ...this.extra };
   }
 
+  /**
+   * Saves run one at a time.
+   *
+   * Each one is a read-modify-write of the same file through a temp file with
+   * the same name. Two overlapping saves — two setup pages, or one person
+   * clicking twice — interleave into: both read the old contents, both write
+   * the temp file, and the second rename wins with the first key missing from
+   * it. The page has already said "OK" by then, and the key is gone.
+   */
+  private writes: Promise<void> = Promise.resolve();
+
   async save(entries: Record<string, string>): Promise<void> {
+    const next = this.writes.then(
+      () => this.write(entries),
+      () => this.write(entries),
+    );
+    this.writes = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
+  private async write(entries: Record<string, string>): Promise<void> {
     this.extra = { ...this.extra, ...entries };
     let existing = '';
     try {
@@ -98,10 +121,14 @@ export class FileKeyStore implements KeyStore {
       /* first key */
     }
     await mkdir(dirname(this.keysPath), { recursive: true });
-    const tmp = `${this.keysPath}.tmp`;
+    // A unique name, so a second process writing the same store cannot leave
+    // this one renaming a file it did not finish writing.
+    const tmp = `${this.keysPath}.${process.pid}.${(this.tmpSeq += 1)}.tmp`;
     await writeFile(tmp, mergeEnv(existing, entries), { mode: 0o600 });
     await rename(tmp, this.keysPath);
   }
+
+  private tmpSeq = 0;
 
   providerConfigs(): ProviderConfig[] {
     return this.configs;
