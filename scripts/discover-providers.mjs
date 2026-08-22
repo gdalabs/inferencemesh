@@ -81,6 +81,16 @@ async function scanCatalogs(prev) {
     const list = Array.isArray(data) ? data : (data.data ?? data.models ?? []);
     const ids = list.filter((m) => (c.freeOnly ? isFree(m) : true)).map((m) => m.id).filter(Boolean).sort();
     const before = prev.catalogs?.[c.id] ?? null;
+
+    // A catalog that answered 200 with nothing in it is a broken response far
+    // more often than a provider deleting its entire model list. Reporting it
+    // as a diff would print every id as GONE and then store the empty list as
+    // the new baseline — one bad response, one false alarm, and the real
+    // disappearance the next day goes unnoticed because the baseline is gone.
+    if (ids.length === 0 && before?.length) {
+      out.push({ source: c.id, kind: 'error', detail: 'responded with an empty model list — keeping the previous snapshot' });
+      continue;
+    }
     if (before === null) {
       out.push({ source: c.id, kind: 'baseline', count: ids.length });
     } else {
@@ -197,7 +207,7 @@ async function main() {
 
   if (JSON_OUT) {
     console.log(JSON.stringify({ scannedAt: new Date().toISOString(), findings }, null, 2));
-    return real.length > 0 ? 10 : 0;
+    return exitCode(real, errors);
   }
 
   for (const b of baselines) console.log(`baseline  ${b.source}: ${b.count} entries recorded (no diff on a first run)`);
@@ -218,14 +228,41 @@ async function main() {
   }
 
   console.log(`\n${real.length} new finding(s). Candidates only — confirm with \`inferencemesh probe\` before adding.`);
-  // 10 = "something to look at", distinct from 1 = "a check failed".
+  return exitCode(real, errors);
+}
+
+/**
+ * 10 = something to look at. 1 = the run could not look.
+ *
+ * The distinction only means anything if the second one can actually happen.
+ * Every catalog failing used to exit 0 alongside "0 new findings", which reads
+ * identically to a quiet week — a monitor reporting that it saw nothing when
+ * what it means is that it saw nothing *of anything*. A single flaky source is
+ * still exit 0: catalogs go down, and failing the run for one of them is how a
+ * scheduled check gets muted.
+ */
+function exitCode(real, errors) {
+  const catalogIds = new Set(CATALOGS.map((c) => c.id));
+  const catalogErrors = errors.filter((e) => catalogIds.has(e.source));
+  if (catalogErrors.length === catalogIds.size) {
+    console.log('\nevery catalog failed — nothing was compared this run.');
+    return 1;
+  }
   return real.length > 0 ? 10 : 0;
 }
 
+// `process.exitCode`, never `process.exit()`.
+//
+// process.exit terminates before pending stdout writes are flushed, and writes
+// to a pipe are asynchronous — so `discover-providers --json | jq` loses the
+// tail of its own output. The CLI learned this the expensive way; this file
+// was still doing it.
 main().then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (err) => {
     console.error(err);
-    process.exit(1);
+    process.exitCode = 1;
   },
 );
