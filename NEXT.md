@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = dc45ac9（push済・PRIVATE）。テスト315件 全pass。
+現在地点: origin/main = 7a7cd23（push済・PRIVATE）。テスト316件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -10,6 +10,11 @@ AFK セッション 2026-08-22 17:10〜23:10。
 
 
 ## P2
+
+- サンプルの環境変数ファイル（リポジトリ直下のテンプレート）が古い。
+  NVIDIA/ZAI/MODELSCOPE/OVH/LLM7 の変数と KEYS/LEDGER/PUBLIC_HEALTH が無い。
+  🔴 ただし `block-git-secrets.sh` がそのファイル名を含むコマンドを止めるので、
+  編集・commit は本人の手でやる方が早い（フックは回避しない）
 
 
 - ヒンディー語とマラーティー語は分離できないまま（デーヴァナーガリーに区別する文字が無い。
@@ -29,6 +34,14 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ `sync` が新規プロバイダ枠を `maxPrivacy: internal` で作っていたのを `public` に
+  （commit 7a7cd23, push済）。機密性の判断を機械がしていた
+- ✅ Worker のスニペットが**そのままでは型が通らなかった**ので、
+  ビルドでコンパイルされる `examples/worker.ts` にして README とずれたら落ちるようにした
+  （commit 8209422 / 9ed67ac, push済）。Docker ビルドが落ちたのもここで検出して修正
+- ✅ 公開前監査: 全50コミットの author/committer が GDA Labs、履歴全体で PII ゼロ、
+  鍵らしき文字列はテスト用の偽値のみ、追跡ファイル58件にバイナリなし
 
 - ✅ 🔴 llm7 の `maxConcurrent` を**実測**して 1 と確定（commit b646431, push済）。
   ROADMAP Now の1件。鍵不要なので課金枠を使わずに測れた。3回とも再現
