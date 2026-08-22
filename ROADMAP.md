@@ -2,17 +2,18 @@
 
 ## Now
 
-- **Observed concurrency limits.** The semaphore exists (`maxConcurrent`, see
-  the README), but no provider in `providers.default.json` sets one, because
-  none has been measured. A number nobody has observed would throttle real
-  capacity on a guess. `probe` could find it: raise the parallelism until 429s
-  arrive in a burst rather than at a steady rate, and record the level with the
-  date it was measured, the way prices are.
+- **Observed concurrency limits, for the providers that need a key.** `llm7` is
+  measured: **1 concurrent request**, found on 2026-08-22 by climbing the
+  parallelism until the second in-flight request came back `429 Too many
+  concurrent requests for this client. Retry after 10 seconds.` — reproduced
+  three times, one 200 and one 429 every time, and recorded in the registry
+  with the date. It cost nothing to find because that provider is keyless.
 
-  One lead already: on 2026-08-20 `llm7` answered a second in-flight request
-  with `429 Too many concurrent requests for this client. Retry after 10
-  seconds.` — it enforces a concurrency limit and says so in words, but not
-  what the limit is. That number has to be found by climbing, not read.
+  The rest still need their own measurement, and each one spends the free tier
+  of whoever runs it, so it is a deliberate step rather than something a
+  scheduled job should do. The method is the one above: climb until 429s arrive
+  in a burst rather than at a steady rate, and never write a number that was
+  not observed — an invented limit throttles real capacity and nothing errors.
 - **Language evidence in the registry.** `probe --language=<tag>` now measures
   whether a model answers in the language it was asked in, and reports that
   against what `languages` claims (2026-08-22). What it does not do is write

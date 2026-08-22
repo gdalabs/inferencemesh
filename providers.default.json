@@ -1048,6 +1048,7 @@
       "apiKeyEnv": "LLM7_API_KEY",
       "apiKeyOptional": true,
       "maxPrivacy": "public",
+      "maxConcurrent": 1,
       "signupUrl": "https://token.llm7.io/",
       "summary": "登録しなくても使える。鍵を入れると使えるモデルが増える",
       "freeTierNote": "完全無料・鍵なしでも動く",
@@ -1066,7 +1067,11 @@
         "internal 以上のテキストを流してはいけない（誰がログを持っているか分からない）。",
         "無料トークンを登録すると 30 RPM → 120 RPM になるとされ、deepseek/kimi 系は",
         "キー必須（無キーでは Missing API key. が返ることを実測）。LLM7_API_KEY を入れれば有効になる。",
-        "キー無しで動くものだけを残してある。"
+        "キー無しで動くものだけを残してある。",
+        "🔴 maxConcurrent: 1 は 2026-08-22 の実測値（推測ではない）。並列度を上げていくと",
+        "n=2 の時点で2本目が必ず 429 『Too many concurrent requests for this client.",
+        "Retry after 10 seconds.』を返す。3回とも 200 が1本・429 が1本で再現した。",
+        "この値があると、ルータは llm7 が塞がっている時に待たずに他の候補へ回す。"
       ],
       "models": [
         {
