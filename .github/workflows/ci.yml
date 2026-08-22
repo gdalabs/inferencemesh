@@ -1,0 +1,61 @@
+# Run the suite on every push and every pull request.
+#
+# `release.yml` also runs `npm test`, but only under `on: push: tags` — which
+# means a contributor's pull request was verified by nothing at all, and main
+# could go red for as long as nobody cut a tag. Releases are the wrong place to
+# find out.
+#
+# The suite needs no network and no key, so a failure here is a real failure
+# and never a rate limit. Nothing in this workflow may reach a provider: a CI
+# job that spends someone's free tier turns a fork's pull request into a bill.
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the floor the code targets; 22 is what most people now run.
+        # A version-specific break in `fetch` or the SEA bundle is exactly the
+        # kind of thing that only shows up on one of them.
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  bundle:
+    # The bundle is a separate failure mode from the tests: `import.meta.url`
+    # and JSON imports behave differently once esbuild has flattened everything
+    # to CommonJS, and that has broken the CLI while every unit test passed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npm run build && npm run bundle
+      # Proof it runs, not just that it built. `route` is pure — it touches no
+      # network — so a fake key is enough to load a provider and is never sent
+      # anywhere. Without one this step would quietly depend on the registry
+      # still containing a keyless provider, and would start failing on the day
+      # llm7 asked for a key: a red build with nothing to do with the change.
+      #
+      # `shell: bash` for pipefail. The default shell is `bash -e`, where the
+      # exit status of `node … | head` is head's, so a crashing binary would
+      # pass this step without a sound.
+      - name: Smoke test the bundle
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: ci-not-a-real-key
+        run: node build/bundle.cjs route free | head -5

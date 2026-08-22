@@ -68,9 +68,14 @@ jobs:
           Move-Item build/inferencemesh.exe build/inferencemesh-${{ matrix.target }}.exe
 
       # A binary that was never executed is not known to work. This is the
-      # cheapest possible proof: it must route with no keys and no network.
+      # cheapest possible proof: it must route, with no network at all.
+      # The key is fake and goes nowhere — `route` is pure. It is here so the
+      # step does not quietly depend on the registry still containing a
+      # keyless provider, which is not a property of this binary.
       - name: Smoke test the binary
         shell: bash
+        env:
+          OPENROUTER_API_KEY: ci-not-a-real-key
         run: |
           ./build/inferencemesh-${{ matrix.target }}${{ matrix.ext }} route free | head -5
 
