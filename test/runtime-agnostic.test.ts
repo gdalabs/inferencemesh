@@ -88,12 +88,17 @@ describe('the settings are documented', () => {
   });
 
   test('the README does not document settings that no longer exist', async () => {
-    const [server, setup, readme] = await Promise.all([
+    // install.sh counts: it reads settings of its own, and they are described
+    // in the same README, so leaving it out would report them as stale.
+    const [server, setup, installer, readme] = await Promise.all([
       readFile(resolve(SRC, 'server/node.ts'), 'utf8'),
       readFile(resolve(SRC, 'setup.ts'), 'utf8'),
+      readFile(resolve(SRC, '../install.sh'), 'utf8'),
       readFile(resolve(SRC, '../README.md'), 'utf8'),
     ]);
-    const real = new Set([...`${server}${setup}`.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
+    const real = new Set(
+      [...`${server}${setup}${installer}`.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]),
+    );
     const documented = new Set([...readme.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
     const stale = [...documented].filter((v) => !real.has(v)).sort();
     assert.deepEqual(stale, [], `documented but unread: ${stale.join(', ')}`);
@@ -137,5 +142,28 @@ describe('the CLI flags are documented', () => {
     for (const m of cli.matchAll(/includes\('(--[a-z-]+)'\)/g)) flags.add(m[1] as string);
     const missing = [...flags].filter((f) => !readme.includes(f)).sort();
     assert.deepEqual(missing, [], `undocumented flags: ${missing.join(', ')}`);
+  });
+});
+
+describe('the ways to install are all written down', () => {
+  test('the installer script is mentioned by the README', async () => {
+    // We ship install.sh and a release workflow that builds five binaries. A
+    // distribution channel nobody is told about is one nobody uses, and it was
+    // absent from the README entirely.
+    const readme = await readFile(resolve(SRC, '../README.md'), 'utf8');
+    assert.match(readme, /install\.sh/);
+    for (const knob of ['INFERENCEMESH_BIN_DIR', 'INFERENCEMESH_RELEASE_BASE']) {
+      assert.ok(readme.includes(knob), `${knob} is a documented way to change the install`);
+    }
+  });
+
+  test('every variable the installer reads is one the README names', async () => {
+    const [installer, readme] = await Promise.all([
+      readFile(resolve(SRC, '../install.sh'), 'utf8'),
+      readFile(resolve(SRC, '../README.md'), 'utf8'),
+    ]);
+    const used = new Set([...installer.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
+    const missing = [...used].filter((v) => !readme.includes(v)).sort();
+    assert.deepEqual(missing, [], `undocumented installer settings: ${missing.join(', ')}`);
   });
 });

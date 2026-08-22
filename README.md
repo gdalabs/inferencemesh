@@ -48,12 +48,17 @@ curl localhost:8910/v1/chat/completions \
   -d '{"model":"mesh/free","messages":[{"role":"user","content":"hello"}]}'
 ```
 
-Adding keys makes it better. Open the setup page — the URL with the token is
-printed at startup:
+Adding keys makes it better. Open the setup page — the URL is printed at startup:
 
 ```
 [inferencemesh] add keys here: http://127.0.0.1:8910/setup#<token>
 ```
+
+The token in that fragment is one of your own `INFERENCEMESH_TOKENS`. Started
+from a terminal, the line is printed complete and clickable; anywhere its
+output is a log — under systemd, under `docker compose` — the token is left out
+rather than written somewhere it outlives the process and is readable by more
+people than started it.
 
 It lists every provider with what it gives you, **click-by-click steps to get the
 key**, what the key looks like (`nvapi-…`), a paste box, and a live check. A
@@ -85,6 +90,22 @@ before it asks for anything:
   an error, so a mistake cannot turn into a bill.
 
 ## Install
+
+One executable, no Node, no package manager:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gdalabs/inferencemesh/main/install.sh | sh
+```
+
+It downloads the build for your platform, **checks it against the published
+`SHA256SUMS` and refuses to install if it cannot** — a verification anyone able
+to substitute the binary could also switch off is not a verification — and puts
+it in `~/.local/bin`. `INFERENCEMESH_BIN_DIR` moves that;
+`INFERENCEMESH_RELEASE_BASE` points at a mirror or an air-gapped copy; and
+`INFERENCEMESH_SKIP_CHECKSUM=1` proceeds without the check, which you should
+want a reason for.
+
+As a library or to run from source:
 
 ```sh
 npm install inferencemesh
