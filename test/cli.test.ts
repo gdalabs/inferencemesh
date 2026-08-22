@@ -62,10 +62,46 @@ describe('cli — a mistyped argument is a message, not a crash', () => {
     assert.match(r.err, /positive integer/);
   });
 
-  test('an unknown command prints usage', async () => {
+  test('an unknown command prints the help', async () => {
     const r = await cli(['nonsense']);
     assert.equal(r.code, 2);
-    assert.match(r.err, /usage: inferencemesh/);
+    assert.match(r.err, /inferencemesh — an OpenAI-compatible router/);
+  });
+});
+
+describe('cli — help', () => {
+  test('--help lists the commands', async () => {
+    // The installed thing is one executable with no README beside it.
+    for (const flag of ['help', '--help', '-h']) {
+      const r = await cli([flag]);
+      assert.equal(r.code, 0, flag);
+      for (const cmd of ['setup', 'serve', 'route', 'probe', 'sync', 'version']) {
+        assert.match(r.out, new RegExp(`inferencemesh ${cmd}`), `${flag} omits ${cmd}`);
+      }
+    }
+  });
+
+  test('an unknown command shows the same help, and fails', async () => {
+    const r = await cli(['nonsense']);
+    assert.equal(r.code, 2);
+    assert.match(r.err, /inferencemesh route/);
+    assert.match(r.err, /unknown command 'nonsense'/);
+  });
+
+  test('every flag in the help is one the CLI reads', async () => {
+    // A help screen that lists a flag nothing implements is worse than none.
+    const { readFile } = await import('node:fs/promises');
+    const source = await readFile(new URL('../src/cli.js', import.meta.url), 'utf8');
+    const help = (await cli(['--help'])).out;
+    const listed = new Set([...help.matchAll(/^\s+(--[a-z-]+)/gm)].map((m) => m[1] as string));
+    assert.ok(listed.size >= 8, 'the help lists flags at all');
+    for (const flag of listed) {
+      const bare = flag.slice(2);
+      assert.ok(
+        source.includes(`'${bare}'`) || source.includes(flag),
+        `${flag} is documented in --help but nothing reads it`,
+      );
+    }
   });
 });
 

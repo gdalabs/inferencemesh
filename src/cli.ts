@@ -55,6 +55,43 @@ function fail(msg: string): never {
   throw new UsageError(msg);
 }
 
+
+/**
+ * What this program can do, in one screen.
+ *
+ * Worth having because the thing people install is a single executable with no
+ * README beside it: `--help` and `version` are the only way to find out what
+ * is in front of them. Every flag listed here is one the code actually reads —
+ * a test holds this text and the README to that.
+ */
+const HELP = `inferencemesh — an OpenAI-compatible router across free LLM tiers
+
+  inferencemesh setup [FILE]        walk through getting keys, verifying each one
+  inferencemesh serve               start the gateway (needs INFERENCEMESH_TOKENS)
+  inferencemesh route <profile>     explain a routing decision, offline
+  inferencemesh probe               call every candidate once and report what works
+  inferencemesh sync --provider=ID  generate registry entries from a provider's catalog
+  inferencemesh version             which build this is
+
+route flags
+  --language=ja                     weight competence in that language
+  --privacy=internal                the lowest tier a candidate must serve
+  --capabilities=vision,tools       hard requirements, not preferences
+  --min-context=200000              minimum context window
+
+probe flags
+  --language=ja                     ask in that language and grade the reply
+  --provider=groq                   only that provider
+  --json                            for a scheduler; non-zero exit means rot
+
+sync flags
+  --provider=redpill|openrouter     which catalog to read
+  --out=FILE                        where to write (default providers.<id>.json)
+  --dry-run                         report the diff, write nothing
+
+Configuration is environment variables; see the README. Keys stay on this
+machine: nothing here has a hosted component.`;
+
 async function loadRegistry() {
   const cfg = configFromEnv();
   const raw = await loadRegistryFile(cfg.registryPath || null, cfg.registryPathExplicit);
@@ -507,6 +544,11 @@ async function run(): Promise<void> {
   // lose the tail of its own output. Setting the code and letting the process
   // end naturally flushes first. This cost an afternoon once; leave it alone.
   switch (cmd) {
+    case 'help':
+    case '--help':
+    case '-h':
+      console.log(HELP);
+      break;
     case 'version':
     case '--version':
     case '-v':
@@ -539,7 +581,7 @@ async function run(): Promise<void> {
       await serveMain();
       break;
     default:
-      fail('usage: inferencemesh <setup|probe|route|sync|serve|version> [options]');
+      fail(`${HELP}\n\nunknown command '${String(cmd ?? '')}'`);
   }
 }
 
