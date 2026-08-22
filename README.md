@@ -297,7 +297,27 @@ needs a human (`BROKE`, exit 1), while a `429` means the free tier is working as
 (`limit`, exit 0). Alerting on the second every night is how a monitor teaches you to ignore it.
 
 `quality` and `languages` scores are hand-maintained relative estimates, not benchmark results.
-They only have to order *your* registry correctly.
+They only have to order *your* registry correctly. The `languages` half of that can at least be
+contradicted by evidence:
+
+```sh
+inferencemesh probe --language=ja          # ask in Japanese, grade what comes back
+inferencemesh probe --language=ja --json
+```
+
+Each candidate is asked two questions **written in that language** — an English "reply in Japanese"
+instruction would measure instruction-following instead — and the reply is graded by script and
+function words. The result is printed next to what the registry claims, and only one direction is a
+fault: a language the registry says is served and the model will not answer in (exit 1). A model
+rated low that answers fine is reported as `understated`, which is worth reading and nobody's alert.
+
+**It never writes the score.** Answering in Japanese is compliance, not competence, and turning a
+pass into a `0.84` would put an invented number exactly where a measured one belongs — the same
+failure as an unverified price. What it cannot judge it says it cannot judge: a language with no
+judge, a reply too short to tell apart from its neighbours, and a reply the token budget cut off
+mid-thought all come back `unjudged` rather than as a failure. That last one is not hypothetical —
+the first live run of this command called a model a Japanese failure while it was, in English,
+reasoning about answering in Japanese.
 
 ## Finding new providers
 

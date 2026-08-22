@@ -13,11 +13,19 @@
   with `429 Too many concurrent requests for this client. Retry after 10
   seconds.` — it enforces a concurrency limit and says so in words, but not
   what the limit is. That number has to be found by climbing, not read.
-- **Measured language competence.** `languages` scores are hand-written
-  estimates today, which does not scale to a generated registry and is the wrong
-  way round for non-English users — the thing that matters most is the thing
-  being guessed. `probe --language=ja` could measure whether a model actually
-  replies in the requested language and feed that in.
+- **Language evidence in the registry.** `probe --language=<tag>` now measures
+  whether a model answers in the language it was asked in, and reports that
+  against what `languages` claims (2026-08-22). What it does not do is write
+  anything: compliance is not competence, so there is still no measured number
+  behind a `languages` score, only a check that an existing claim is not flatly
+  contradicted. Feeding real ratings in needs a source that measures quality —
+  see *Rate what sync cannot* below — and until then the honest shape is
+  evidence stored beside the human score, the way `evidencePrivacy` is, rather
+  than merged into it.
+- **A judge for more languages.** Script-based judging covers ja/zh/ko/ru/ar/hi/th
+  outright. Latin-script languages are told apart by function words, which works
+  for the eleven in the table and returns `unjudged` for every other — honest,
+  but it means a Swahili or Tagalog claim cannot be contradicted at all.
 - **Prebuilt binaries.** `npm run build:binary` produces a working executable,
   but one platform at a time. CI should build macOS arm64/x64, Linux x64/arm64
   and Windows, publish them to Releases, and back an `install.sh`.

@@ -23,6 +23,8 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
   which no window-based counter can see.
 - `src/sync.ts` — catalog in, registry entries out. Pure; the merge rules live
   here. **Machine facts are refreshed, human judgement is preserved.**
+- `src/language-probe.ts` — grades whether a reply is in the language it was
+  asked for. Pure, so it tests against captured replies with no network.
 - `src/catalogs.ts` — per-provider catalog readers. Pure functions over parsed
   JSON, so they test against a captured response with no network and no key.
 - `src/mesh.ts` — route, attempt, fall back, book. **The only place allowed to retry.**
@@ -40,6 +42,7 @@ npm run build
 npm run build:binary     # single executable, runs without Node installed
 node dist/src/cli.js route free --language=ja   # explain a decision, offline
 node dist/src/cli.js probe                      # call every candidate for real
+node dist/src/cli.js probe --language=ja         # check each answers in Japanese
 node dist/src/cli.js sync --provider=redpill --dry-run   # generate from a catalog
 node scripts/discover-providers.mjs             # find new free tiers; exit 10 = news
 ```
@@ -77,6 +80,16 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   Overwriting erases the decision instead of surfacing the conflict.
 - 🔴 **Absent is not denied.** A catalog that declares no capabilities has said
   nothing, not "no tools". Record `text`, warn, and leave probed values alone.
+- 🔴 **`probe --language` must never write a `languages` score.** It measures
+  compliance ("did it answer in Japanese"), and competence ("how good is that
+  Japanese") is not the same fact. Deriving a 0..1 from a passing reply puts an
+  invented number where a measured one belongs — the price rule again. It
+  reports against the claim; a human writes the claim.
+- 🔴 **A truncated reply is not evidence.** A thinking model narrates in English
+  before answering, so a reply cut off at `max_tokens` contains no answer.
+  The first live run of the language probe faulted `minimax-m2.7` for exactly
+  this: the probe's own token budget, reported as the model's failure. Grade
+  `finish_reason: 'length'` down to `unjudged`, never to a fault.
 - 🔴 **Never guess a `maxConcurrent`.** Same rule as prices: an unobserved limit
   throttles real capacity and nothing errors. Absent means unlimited, and that
   is why `providers.default.json` sets none.

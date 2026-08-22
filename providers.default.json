@@ -956,7 +956,9 @@
           "quota": {
             "requestsPerMinute": 20,
             "requestsPerDay": 50
-          }
+          },
+          "disabled": true,
+          "$comment": "2026-08-22: probe got 404 \"unavailable for free — the paid version is available now\". Left the free tier; disabled rather than deleted so the disappearance stays visible."
         }
       ]
     },
