@@ -78,13 +78,22 @@ export class QuotaLedger {
   private async ensure(): Promise<Record<string, LedgerRecord>> {
     if (this.state !== null) return this.state;
     if (this.loading === null) {
-      this.loading = this.storage.load().then((loaded) => {
-        // Still null unless another path beat us here; never discard a state
-        // that has already taken bookings.
-        this.state ??= loaded;
-        this.loading = null;
-        return this.state;
-      });
+      this.loading = this.storage.load().then(
+        (loaded) => {
+          // Still null unless another path beat us here; never discard a state
+          // that has already taken bookings.
+          this.state ??= loaded;
+          this.loading = null;
+          return this.state;
+        },
+        (err: unknown) => {
+          // Clear it, or a single failed read is remembered forever: every
+          // later call would await the same rejected promise and the ledger
+          // would stay broken after the storage came back.
+          this.loading = null;
+          throw err;
+        },
+      );
     }
     return this.loading;
   }

@@ -192,6 +192,26 @@ describe('ledger — a cold start under load', () => {
     assert.equal(storage.loads(), 1);
   });
 
+  test('a storage that fails once is retried, not remembered', async () => {
+    // Memoising the load means memoising its failure too, unless the rejection
+    // clears it: one unreadable read would otherwise be replayed to every
+    // later call and the ledger would stay broken after the storage recovered.
+    let attempts = 0;
+    const flaky = {
+      async load() {
+        attempts++;
+        if (attempts === 1) throw new Error('storage unavailable');
+        return {} as Record<string, never>;
+      },
+      async save() {},
+    };
+    const ledger = new QuotaLedger(flaky);
+    await assert.rejects(() => ledger.admit('p/m', undefined), /storage unavailable/);
+    const second = await ledger.admit('p/m', { requestsPerMinute: 1 });
+    assert.equal(second.ok, true);
+    assert.equal(attempts, 2);
+  });
+
   test('state already on disk is not lost by a concurrent first request', async () => {
     const storage = slowStorage({
       'p/m': { recent: [], day: '2000-01-01', dayRequests: 7, dayTokens: 0 },

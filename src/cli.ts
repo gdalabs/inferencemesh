@@ -36,9 +36,18 @@ import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
 import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
 import { PRIVACY_ORDER, type Capability, type PrivacyLevel } from './types.js';
 
+/**
+ * A user error: one line, exit 2.
+ *
+ * It throws rather than calling `process.exit`, which terminates before
+ * pending writes to a pipe are flushed — the same reason the exit code at the
+ * bottom of this file is set rather than forced. The top-level handler prints
+ * it and sets the code, so every way of getting a message out is the same one.
+ */
+class UsageError extends Error {}
+
 function fail(msg: string): never {
-  console.error(msg);
-  process.exit(2);
+  throw new UsageError(msg);
 }
 
 async function loadRegistry() {
@@ -513,6 +522,9 @@ async function run(): Promise<void> {
 // nosuchprofile` printed a stack trace with the Node version underneath it
 // while every other bad input got a single usable line.
 void run().catch((err: unknown) => {
-  console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+  const message = err instanceof Error ? err.message : String(err);
+  // A usage error is already phrased for a person; anything else is an
+  // exception that escaped and reads better with a prefix than as a stack.
+  console.error(err instanceof UsageError ? message : `error: ${message}`);
   process.exitCode = 2;
 });
