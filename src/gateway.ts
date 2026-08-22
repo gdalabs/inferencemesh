@@ -43,6 +43,23 @@ export interface GatewayOptions {
   publicHealth?: boolean;
   /** Enables /setup and the key endpoints. Omit to disable setup entirely. */
   keyStore?: KeyStore;
+  /**
+   * Optional screenshots for the setup page's step-by-step guides.
+   *
+   * Injected rather than read from disk here, because this file has to keep
+   * running in a Worker — a test walks the imports out of the entry point and
+   * fails on anything from `node:`. The Node server supplies a reader over a
+   * directory; a Worker could supply one over KV, or none at all, in which
+   * case the page draws its own diagrams instead.
+   */
+  shots?: ShotStore;
+}
+
+export interface ShotStore {
+  /** Provider id to the file names it has, in order. */
+  list(): Promise<Record<string, string[]>>;
+  /** Bytes for one file name, or null when there is no such file. */
+  read(name: string): Promise<Uint8Array | null>;
 }
 
 function cors(origin: string | null, allowed: string[] | undefined): Record<string, string> {
@@ -119,8 +136,13 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
         'cache-control': 'no-store',
         // Nothing external loads, so forbid it outright: a setup page that
         // handles API keys must not be able to fetch a third-party script.
+        // `blob:` for images only, and only because a screenshot is fetched
+        // with the token and turned into a blob URL — an <img src> cannot
+        // carry an Authorization header, and these are pictures of somebody's
+        // own console. Everything else stays 'none'.
         'content-security-policy':
-          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'",
+          "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+          "img-src blob:; connect-src 'self'; form-action 'none'; base-uri 'none'",
         'referrer-policy': 'no-referrer',
         ...ch,
       },
@@ -145,6 +167,31 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
       200,
       ch,
     );
+  }
+
+  // Screenshots for the setup guides, behind the same token as everything
+  // else the page calls. They are images of somebody's own provider console
+  // and can carry an account name in the corner, so they are not served to an
+  // unauthenticated caller the way the static page is.
+  if (url.pathname === '/setup/shots.json' && req.method === 'GET') {
+    return json(opts.shots ? await opts.shots.list() : {}, 200, ch);
+  }
+
+  if (url.pathname.startsWith('/setup/shot/') && req.method === 'GET') {
+    const name = url.pathname.slice('/setup/shot/'.length);
+    const bytes = opts.shots ? await opts.shots.read(name) : null;
+    if (!bytes) return json(errorBody('no such screenshot', 'not_found'), 404, ch);
+    return new Response(bytes as BodyInit, {
+      status: 200,
+      headers: {
+        'content-type': name.endsWith('.jpg') || name.endsWith('.jpeg') ? 'image/jpeg' : 'image/png',
+        'cache-control': 'no-store',
+        // Belt and braces: an image endpoint that can be talked into serving
+        // HTML is an XSS hole on the same origin as the key form.
+        'x-content-type-options': 'nosniff',
+        ...ch,
+      },
+    });
   }
 
   if (url.pathname === '/v1/providers' && req.method === 'GET' && opts.keyStore) {

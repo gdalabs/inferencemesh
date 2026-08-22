@@ -4,7 +4,7 @@ import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileKeyStore } from '../src/server/node.js';
+import { FileKeyStore, FileShots } from '../src/server/node.js';
 
 /**
  * The file every provider key lands in on a self-hosted install.
@@ -79,5 +79,61 @@ describe('FileKeyStore', () => {
     await s.save({ ALPHA_KEY: 'sk-alpha' });
     assert.equal(s.env()['BASE_ONLY'], 'from-env');
     assert.equal(s.env()['ALPHA_KEY'], 'sk-alpha');
+  });
+});
+
+describe('FileShots', () => {
+  async function dir() {
+    const d = await mkdtemp(join(tmpdir(), 'im-shots-'));
+    return d;
+  }
+
+  test('files are grouped by provider, in order', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const d = await dir();
+    for (const n of ['groq-2.png', 'groq-1.png', 'nvidia-1.jpg']) await writeFile(join(d, n), 'x');
+    assert.deepEqual(await new FileShots(d).list(), {
+      groq: ['groq-1.png', 'groq-2.png'],
+      nvidia: ['nvidia-1.jpg'],
+    });
+  });
+
+  test('a missing directory is empty, not an error', async () => {
+    // The default state. Nobody has to create anything for the page to work.
+    assert.deepEqual(await new FileShots('/nonexistent/shots').list(), {});
+  });
+
+  test('nothing outside the directory can be named', async () => {
+    // This hands bytes to a browser on the same origin as the key form. The
+    // name is matched against a pattern rather than sanitised, because
+    // sanitising is a list of the tricks you happened to remember.
+    const { writeFile } = await import('node:fs/promises');
+    const d = await dir();
+    await writeFile(join(d, 'groq-1.png'), 'real');
+    const shots = new FileShots(d);
+    for (const bad of [
+      '../../../etc/passwd',
+      '../keys.env',
+      'groq-1.png/../../keys.env',
+      '/etc/passwd',
+      'groq-1.PNG',
+      'groq-1.svg',
+      'keys.env',
+      '',
+    ]) {
+      assert.equal(await shots.read(bad), null, bad);
+    }
+    assert.ok(await shots.read('groq-1.png'), 'and the legitimate one still works');
+  });
+
+  test('a file that is not there reads as null', async () => {
+    assert.equal(await new FileShots(await dir()).read('groq-9.png'), null);
+  });
+
+  test('stray files in the directory are ignored rather than listed', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const d = await dir();
+    for (const n of ['notes.txt', 'keys.env', '.DS_Store', 'groq-1.png']) await writeFile(join(d, n), 'x');
+    assert.deepEqual(await new FileShots(d).list(), { groq: ['groq-1.png'] });
   });
 });

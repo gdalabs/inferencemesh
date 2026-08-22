@@ -11,12 +11,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { stdout } from 'node:process';
 import { Readable } from 'node:stream';
-import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { handleRequest, type KeyStore } from '../gateway.js';
+import { handleRequest, type KeyStore, type ShotStore } from '../gateway.js';
 import { InferenceMesh } from '../mesh.js';
 import { QuotaLedger, type LedgerRecord, type LedgerStorage } from '../ledger.js';
 import { registryFrom } from '../config.js';
@@ -257,6 +257,8 @@ export interface ServerConfig {
   registryPathExplicit: boolean;
   ledgerPath: string;
   keysPath: string;
+  /** Directory of setup-guide screenshots. Absent is fine: the page draws its own. */
+  shotsPath: string;
   allowedOrigins: string[];
   publicHealth: boolean;
   /**
@@ -301,6 +303,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     registryPathExplicit: Boolean(env['INFERENCEMESH_REGISTRY']),
     ledgerPath: env['INFERENCEMESH_LEDGER'] ?? resolve(process.cwd(), '.inferencemesh/ledger.json'),
     keysPath: env['INFERENCEMESH_KEYS'] ?? resolve(process.cwd(), '.inferencemesh/keys.env'),
+    shotsPath: env['INFERENCEMESH_SHOTS'] ?? resolve(process.cwd(), '.inferencemesh/shots'),
     allowedOrigins: (env['INFERENCEMESH_ALLOWED_ORIGINS'] ?? '')
       .split(',')
       .map((o) => o.trim())
@@ -308,6 +311,47 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     publicHealth: env['INFERENCEMESH_PUBLIC_HEALTH'] === '1',
     concurrencyWaitMs: intFromEnv(env['INFERENCEMESH_CONCURRENCY_WAIT_MS'], 30_000),
   };
+}
+
+
+/**
+ * Screenshots for the setup page's guides, read from a directory.
+ *
+ * Files are named `<providerId>-<n>.png`, so `groq-1.png` is the first step of
+ * the Groq guide. Anything that does not match is ignored rather than served:
+ * this hands bytes to a browser on the same origin as the key form, and the
+ * one rule that matters is that a request cannot name a file outside the
+ * directory. The name is matched against a strict pattern rather than
+ * sanitised, because sanitising is a list of things you remembered.
+ */
+const SHOT_NAME = /^[a-z0-9][a-z0-9-]{0,48}-\d{1,2}\.(png|jpe?g)$/;
+
+export class FileShots implements ShotStore {
+  constructor(private readonly dir: string) {}
+
+  async list(): Promise<Record<string, string[]>> {
+    let names: string[];
+    try {
+      names = await readdir(this.dir);
+    } catch {
+      return {};
+    }
+    const out: Record<string, string[]> = {};
+    for (const name of names.filter((n) => SHOT_NAME.test(n)).sort()) {
+      const provider = name.slice(0, name.lastIndexOf('-'));
+      (out[provider] ??= []).push(name);
+    }
+    return out;
+  }
+
+  async read(name: string): Promise<Uint8Array | null> {
+    if (!SHOT_NAME.test(name)) return null;
+    try {
+      return await readFile(resolve(this.dir, name));
+    } catch {
+      return null;
+    }
+  }
 }
 
 export async function buildMesh(cfg: ServerConfig): Promise<{ mesh: InferenceMesh; keyStore: FileKeyStore }> {
@@ -373,6 +417,7 @@ export async function main(): Promise<void> {
           allowedOrigins: cfg.allowedOrigins,
           publicHealth: cfg.publicHealth,
           keyStore,
+          shots: new FileShots(cfg.shotsPath),
         });
         await writeFetchResponse(res, out);
       } catch (err) {

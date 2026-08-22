@@ -64,6 +64,18 @@ It lists every provider with what it gives you, **click-by-click steps to get th
 key**, what the key looks like (`nvapi-…`), a paste box, and a live check. A
 verified key takes effect immediately; nothing restarts.
 
+Each step comes with a picture of the screen it is talking about, drawn from
+the step's own text: the label inside 「」 is the control to press, so that is
+what the diagram highlights. They are captioned as diagrams, because a drawing
+presented as a screenshot is a lie about how current it is — a console gets
+redesigned and the picture keeps insisting otherwise.
+
+Real screenshots win where they exist. Put `groq-1.png` in
+`.inferencemesh/shots` and the first Groq step shows it instead. They are
+served behind the same token as everything else the page calls — an image of
+your own console has your account in the corner of it — and fetched into a blob
+rather than linked, since an `<img src>` cannot carry an Authorization header.
+
 **Your keys stay on your machine.** There is no hosted component. A key goes to
 exactly two places: a `600` file in your own volume, and the provider it belongs
 to. No endpoint can return a stored key — `/v1/providers` reports only whether one
@@ -298,6 +310,7 @@ Every setting is an environment variable; the server reads no config file of its
 | `INFERENCEMESH_REGISTRY` | *(discovered)* | Path to a registry file. Naming one that does not exist is an error rather than a silent fall back to the built-in copy. |
 | `INFERENCEMESH_KEYS` | `.inferencemesh/keys.env` | Where keys added through the setup page are stored, mode 600. |
 | `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | Quota counters. Put it on a volume, or every restart forgets what the day has already spent. |
+| `INFERENCEMESH_SHOTS` | `.inferencemesh/shots` | Screenshots for the setup guides, named `<provider>-<n>.png`. Absent is fine — the page draws its own diagrams instead. |
 | `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | How long to queue when *every* candidate is busy. `0` fails instead of waiting. |
 | `INFERENCEMESH_LANG` | *(locale)* | `ja` or `en` for the setup wizard. Defaults to the system locale. |
 

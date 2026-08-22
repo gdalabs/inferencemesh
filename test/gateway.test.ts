@@ -448,3 +448,65 @@ describe('loading the registry file', () => {
     assert.ok(raw.providers.length > 0);
   });
 });
+
+describe('setup guide screenshots', () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+  const shots = {
+    async list() {
+      return { groq: ['groq-1.png', 'groq-2.png'] };
+    },
+    async read(name: string) {
+      return name === 'groq-1.png' ? png : null;
+    },
+  };
+  const g = (extra: Record<string, unknown> = {}) => gateway(new Set(['secret']), { shots, ...extra });
+  const auth = { authorization: 'Bearer secret' };
+
+  test('the manifest and the image need the same token as everything else', async () => {
+    // These are pictures of somebody's own provider console, with their
+    // account name in the corner. The static page is unauthenticated; these
+    // are not.
+    assert.equal((await g()(new Request('http://localhost/setup/shots.json'))).status, 401);
+    assert.equal((await g()(new Request('http://localhost/setup/shot/groq-1.png'))).status, 401);
+  });
+
+  test('an image comes back as bytes with a type that cannot be sniffed', async () => {
+    const res = await g()(new Request('http://localhost/setup/shot/groq-1.png', { headers: auth }));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual(new Uint8Array(await res.arrayBuffer()), png);
+  });
+
+  test('a name the store refuses is a 404, not a crash', async () => {
+    // The store decides what a legal name is; the gateway only asks. Both
+    // halves have to say no, since this reads bytes off a disk and hands them
+    // to a browser on the same origin as the key form.
+    for (const path of [
+      '/setup/shot/../../../etc/passwd',
+      '/setup/shot/nope.png',
+      '/setup/shot/',
+    ]) {
+      const res = await g()(new Request(`http://localhost${path}`, { headers: auth }));
+      assert.equal(res.status, 404, path);
+    }
+  });
+
+  test('with no store configured the endpoints still answer sensibly', async () => {
+    // The default. A Worker has no directory to read and the page simply draws
+    // its own diagrams — it must not see a 500 for asking.
+    const bare = gateway();
+    const manifest = await bare(new Request('http://localhost/setup/shots.json', { headers: auth }));
+    assert.equal(manifest.status, 200);
+    assert.deepEqual(await manifest.json(), {});
+    assert.equal((await bare(new Request('http://localhost/setup/shot/groq-1.png', { headers: auth }))).status, 404);
+  });
+
+  test('the page may load an image blob and nothing else', async () => {
+    const res = await gateway()(new Request('http://localhost/setup'));
+    const csp = res.headers.get('content-security-policy') ?? '';
+    assert.match(csp, /img-src blob:/);
+    assert.match(csp, /default-src 'none'/);
+    assert.ok(!csp.includes('img-src *'), 'not an open image policy');
+  });
+});
