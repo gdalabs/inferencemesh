@@ -36,6 +36,11 @@ That is the whole setup. With **no provider keys at all** the mesh still routes,
 because some providers run an open free tier — verified end to end: a container
 started with an empty environment answers a real chat request.
 
+Compose reads the key file sitting beside it, so keys `inferencemesh setup`
+already wrote are picked up without being listed anywhere. Worth knowing in
+both directions: it is why the container has your keys, and why that file must
+never be committed.
+
 ```sh
 curl localhost:8910/v1/chat/completions \
   -H "authorization: Bearer $INFERENCEMESH_TOKENS" \
