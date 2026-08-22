@@ -230,10 +230,32 @@ Only when **every** candidate is busy does the request queue, FIFO, for up to
 `INFERENCEMESH_CONCURRENCY_WAIT_MS` (default 30000; set `0` to fail instead). That is the
 single-provider case: a 503 now is worse than an answer a moment later.
 
-Omit `maxConcurrent` and the provider is unlimited, which is the shipped default. A limit nobody
-has measured would throttle real capacity on a guess, so `providers.default.json` sets none —
-find yours in the provider's docs, or by watching 429s arrive in bursts rather than at a steady
-rate.
+Omit `maxConcurrent` and the provider is unlimited. A limit nobody has measured would throttle
+real capacity on a guess, so the shipped registry sets one only where it was observed: `llm7`
+allows **1**, found on 2026-08-22 by raising the parallelism until the second in-flight request
+came back `429 Too many concurrent requests for this client`, reproduced three times. Find yours
+the same way, or in the provider's docs — and write the date next to it.
+
+## Configuration
+
+Every setting is an environment variable; the server reads no config file of its own.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `INFERENCEMESH_TOKENS` | *(none)* | Comma-separated bearer tokens. **The server refuses to start without one** — an unauthenticated LLM relay is somebody else's free inference. |
+| `INFERENCEMESH_PORT` | `8910` | Port to listen on. |
+| `INFERENCEMESH_HOST` | `127.0.0.1` | Interface to bind. Binding `0.0.0.0` additionally requires `INFERENCEMESH_ALLOW_ANY_HOST=1`, because this process holds every provider key you own. |
+| `INFERENCEMESH_ALLOW_ANY_HOST` | unset | Permits a non-loopback bind. Set inside a container, where the network namespace is the boundary; think twice anywhere else. |
+| `INFERENCEMESH_ALLOWED_ORIGINS` | *(none)* | Comma-separated browser origins allowed to call the API directly. Empty means no CORS headers at all. |
+| `INFERENCEMESH_PUBLIC_HEALTH` | unset | `1` exposes `/healthz` without a token. It reports provider ids, breaker state and quota — useful for an uptime check, and not nothing to hand out. |
+| `INFERENCEMESH_REGISTRY` | *(discovered)* | Path to a registry file. Naming one that does not exist is an error rather than a silent fall back to the built-in copy. |
+| `INFERENCEMESH_KEYS` | `.inferencemesh/keys.env` | Where keys added through the setup page are stored, mode 600. |
+| `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | Quota counters. Put it on a volume, or every restart forgets what the day has already spent. |
+| `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | How long to queue when *every* candidate is busy. `0` fails instead of waiting. |
+| `INFERENCEMESH_LANG` | *(locale)* | `ja` or `en` for the setup wizard. Defaults to the system locale. |
+
+Provider keys are their own variables, named by each entry's `apiKeyEnv` — `GROQ_API_KEY`,
+`OPENROUTER_API_KEY`, and so on. A provider whose key is absent is skipped and named in `/healthz`.
 
 ## Generating a registry
 

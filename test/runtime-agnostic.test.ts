@@ -72,3 +72,30 @@ describe('the public entry point stays runtime-agnostic', () => {
     assert.ok(!files.has('server/node.ts'), 'the Node server is deliberately not reachable');
   });
 });
+
+describe('the settings are documented', () => {
+  test('every environment variable the server reads appears in the README', async () => {
+    // A setting nobody documented is a setting nobody can use, and the drift
+    // is silent: the code keeps working, the README simply stops being true.
+    // Eight of the ten were missing when this was written.
+    const [server, readme] = await Promise.all([
+      readFile(resolve(SRC, 'server/node.ts'), 'utf8'),
+      readFile(resolve(SRC, '../README.md'), 'utf8'),
+    ]);
+    const used = new Set([...server.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
+    const missing = [...used].filter((v) => !readme.includes(v)).sort();
+    assert.deepEqual(missing, [], `undocumented: ${missing.join(', ')}`);
+  });
+
+  test('the README does not document settings that no longer exist', async () => {
+    const [server, setup, readme] = await Promise.all([
+      readFile(resolve(SRC, 'server/node.ts'), 'utf8'),
+      readFile(resolve(SRC, 'setup.ts'), 'utf8'),
+      readFile(resolve(SRC, '../README.md'), 'utf8'),
+    ]);
+    const real = new Set([...`${server}${setup}`.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
+    const documented = new Set([...readme.matchAll(/INFERENCEMESH_[A-Z_]+/g)].map((m) => m[0]));
+    const stale = [...documented].filter((v) => !real.has(v)).sort();
+    assert.deepEqual(stale, [], `documented but unread: ${stale.join(', ')}`);
+  });
+});
