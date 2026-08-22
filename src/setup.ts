@@ -20,12 +20,11 @@
  */
 
 import { createInterface } from 'node:readline';
-import { readFile, writeFile } from 'node:fs/promises';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { stdin, stdout } from 'node:process';
 
 import { InferenceMesh } from './mesh.js';
 import { Registry } from './registry.js';
-import { registryFrom } from './config.js';
 import type { ProviderConfig } from './types.js';
 
 type Lang = 'en' | 'ja';
@@ -92,7 +91,7 @@ function pickLang(env: NodeJS.ProcessEnv): Lang {
   return /^ja/i.test(locale) ? 'ja' : 'en';
 }
 
-/ Verify a key by actually calling the provider once, cheaply. */
+/** Verify a key by actually calling the provider once, cheaply. */
 async function verify(
   provider: ProviderConfig,
   key: string,
@@ -151,6 +150,10 @@ function lineReader(input: NodeJS.ReadableStream, output: NodeJS.WritableStream)
 
 export function mergeEnv(existing: string, updates: Record<string, string>): string {
   const lines = existing ? existing.split('\n') : [];
+  // The trailing newline every well-formed file ends with splits into an empty
+  // last element. Appending after it puts a blank line before each new key,
+  // and a wizard run three times leaves a file combed with gaps.
+  if (lines[lines.length - 1] === '') lines.pop();
   const seen = new Set<string>();
   const out = lines.map((line) => {
     const m = line.match(/^([A-Z0-9_]+)=/);
@@ -166,46 +169,68 @@ export function mergeEnv(existing: string, updates: Record<string, string>): str
   return out.filter((l, i, a) => !(l === '' && a[i + 1] === '')).join('\n').replace(/\n*$/, '\n');
 }
 
-export async function runSetup(registryPath: string, envPath: string): Promise<number> {
+/** Everything the wizard talks to, so a test can drive it without a terminal. */
+export interface SetupIO {
+  input: NodeJS.ReadableStream;
+  output: NodeJS.WritableStream;
+  /** Overridden in tests. The real one spends a request against the provider. */
+  verifyKey: typeof verify;
+}
+
+/**
+ * Run the wizard over an already-loaded registry.
+ *
+ * The registry arrives as a value rather than a path on purpose. Reading the
+ * file here meant `setup` crashed with a raw ENOENT stack trace in the single
+ * executable and the bundled build — the two things the release workflow and
+ * `install.sh` actually ship — because those have no `providers.default.json`
+ * on disk and fall back to the compiled-in one. `setup` is the first command a
+ * new user runs, so that was the first thing it did.
+ */
+export async function runSetup(
+  registry: unknown,
+  envPath: string,
+  io: Partial<SetupIO> = {},
+): Promise<number> {
+  const { input = stdin, output = stdout, verifyKey = verify } = io;
+  const say = (line = '') => void output.write(`${line}\n`);
   const lang = pickLang(process.env);
   const t = MSG[lang];
-  const raw = JSON.parse(await readFile(registryPath, 'utf8')) as unknown;
-  const file = registryFrom(raw, { env: {} }); // env:{} so nothing is filtered out yet
-  void file;
-  const parsed = JSON.parse(await readFile(registryPath, 'utf8')) as { providers: ProviderConfig[] };
+  const parsed = registry as { providers?: ProviderConfig[] };
+  const providers = Array.isArray(parsed.providers) ? parsed.providers : [];
 
-  const rl = lineReader(stdin, stdout);
+  const rl = lineReader(input, output);
   const collected: Record<string, string> = {};
   let eof = false;
 
-  console.log(`\n${t.intro}\n`);
+  say(`\n${t.intro}\n`);
   // Shown before anything is set up, not buried in a doc afterwards. The
   // audience this is for has been told an API key is dangerous without ever
   // being told *which* parts are dangerous, which is how people end up either
   // paralysed or pasting keys into a web page.
-  console.log(t.trapsTitle);
-  for (const line of t.traps) console.log(`  - ${line}`);
-  console.log('');
+  say(t.trapsTitle);
+  for (const line of t.traps) say(`  - ${line}`);
+  say();
 
   try {
-    for (const p of parsed.providers) {
+    for (const p of providers) {
       if (p.disabled) continue;
       const configured = Boolean(process.env[p.apiKeyEnv]);
       const header = `${p.id}${p.summary ? ` — ${p.summary}` : ''}`;
 
       if (p.apiKeyOptional && !configured) {
-        console.log(`✓ ${header}\n    (${t.keyless})\n`);
+        say(`✓ ${header}\n    (${t.keyless})\n`);
         continue;
       }
       if (configured) {
-        console.log(`✓ ${header}\n    (${t.already}: ${p.apiKeyEnv})\n`);
+        say(`✓ ${header}\n    (${t.already}: ${p.apiKeyEnv})\n`);
         continue;
       }
 
-      console.log(`· ${header}`);
-      if (p.freeTierNote) console.log(`    ${t.freeTier}: ${p.freeTierNote}`);
-      console.log(`    ${p.signupUrl ? `${t.getKey}: ${p.signupUrl}` : t.noSignup}`);
-      console.log(`    ${t.envVar} ${envPath}`);
+      say(`· ${header}`);
+      if (p.freeTierNote) say(`    ${t.freeTier}: ${p.freeTierNote}`);
+      say(`    ${p.signupUrl ? `${t.getKey}: ${p.signupUrl}` : t.noSignup}`);
+      say(`    ${t.envVar} ${envPath}`);
 
       for (;;) {
         const raw = await rl.ask(t.prompt(p.apiKeyEnv));
@@ -215,15 +240,15 @@ export async function runSetup(registryPath: string, envPath: string): Promise<n
         }
         const answer = raw.trim();
         if (!answer) break;
-        console.log(t.checking);
+        say(t.checking);
         const env: Record<string, string | undefined> = { ...process.env, ...collected };
-        const res = await verify(p, answer, env);
+        const res = await verifyKey(p, answer, env);
         if (res.ok) {
-          console.log(t.ok(res.ms));
+          say(t.ok(res.ms));
           collected[p.apiKeyEnv] = answer;
           break;
         }
-        console.log(t.bad(res.why));
+        say(t.bad(res.why));
         const again = await rl.ask(t.retry);
         if (again === null) {
           eof = true;
@@ -232,7 +257,7 @@ export async function runSetup(registryPath: string, envPath: string): Promise<n
         if (again.trim().toLowerCase() !== 'y') break;
       }
       if (eof) break;
-      console.log('');
+      say();
     }
   } finally {
     rl.close();
@@ -240,7 +265,7 @@ export async function runSetup(registryPath: string, envPath: string): Promise<n
 
   const n = Object.keys(collected).length;
   if (n === 0) {
-    console.log(t.none);
+    say(t.none);
     return 0;
   }
   let existing = '';
@@ -250,7 +275,11 @@ export async function runSetup(registryPath: string, envPath: string): Promise<n
     /* first run */
   }
   await writeFile(envPath, mergeEnv(existing, collected), { mode: 0o600 });
-  console.log(t.saved(n));
-  console.log(t.summary);
+  // `mode` only applies when writeFile creates the file. An .env that already
+  // existed keeps whatever permissions it had — usually 0644, world-readable —
+  // and this is the file every provider key lands in.
+  await chmod(envPath, 0o600);
+  say(t.saved(n));
+  say(t.summary);
   return 0;
 }

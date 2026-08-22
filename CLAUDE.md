@@ -31,6 +31,8 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 - `src/providers/*.ts` — adapters. **Must not retry and must not read the registry.**
 - `src/gateway.ts` — Fetch-API handler shared by Node, Workers and Deno.
 - `src/setup-ui.ts` — the setup page, as one self-contained string.
+- `src/probe-report.ts` — the pure half of `probe`: what a failure means.
+  Outside `cli.ts` because importing that file runs the CLI.
 - `src/server/node.ts` — Node server, fail-closed auth, key storage.
 - `src/cli.ts` — `setup` / `probe` / `route` / `serve`.
 
@@ -147,6 +149,14 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   hand one model all the traffic while the rest were never measured.
 
 ## Verification is not optional
+
+`setup` crashed with a raw ENOENT stack trace in the bundle and the single
+executable, because it read the registry by path while every other command
+falls back to the embedded copy. It is the first command a new user runs, and
+the only builds that shipped it were the broken ones. It takes an already
+loaded registry as a value now. **A command that breaks only in the distributed
+build is caught by nothing except running the distributed build.**
+
 
 Features that type-check and pass tests still fail when run. Bugs found only by
 running it: `process.exit()` discarding piped stdout; `readline/promises` never

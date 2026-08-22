@@ -425,7 +425,10 @@ async function run(): Promise<void> {
     case 'setup': {
       const cfg = configFromEnv();
       const envPath = argv.find((a) => !a.startsWith('-')) ?? resolve(process.cwd(), '.env');
-      process.exitCode = await runSetup(cfg.registryPath, envPath);
+      // Loaded the same way every other command loads it, so a build with no
+      // registry file on disk falls back to the embedded one instead of
+      // crashing on an empty path.
+      process.exitCode = await runSetup(await loadRegistryFile(cfg.registryPath || null), envPath);
       break;
     }
     case 'sync':
