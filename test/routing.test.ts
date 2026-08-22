@@ -108,6 +108,33 @@ describe('registry loading', () => {
     assert.doesNotThrow(() => validateRegistryFile(ok));
   });
 
+  test('every provider that needs a key can be set up from the wizard', async () => {
+    // The README promises click-by-click steps to get each key, in the
+    // language the person is reading. A provider added without them still
+    // validates, still routes, and quietly makes the setup wizard useless for
+    // exactly the audience it was written for.
+    const raw = JSON.parse(
+      await (await import('node:fs/promises')).readFile(
+        new URL('../../providers.default.json', import.meta.url),
+        'utf8',
+      ),
+    ) as { providers: Array<Record<string, unknown>> };
+    const gaps: string[] = [];
+    for (const p of raw.providers) {
+      if (p['apiKeyOptional'] === true) continue;
+      const id = String(p['id']);
+      if (!p['summary']) gaps.push(`${id}: no summary`);
+      if (!p['signupUrl']) gaps.push(`${id}: no signupUrl`);
+      const steps = (p['signupSteps'] ?? {}) as Record<string, string[]>;
+      for (const lang of ['ja', 'en']) {
+        if (!Array.isArray(steps[lang]) || steps[lang]?.length === 0) {
+          gaps.push(`${id}: no ${lang} signup steps`);
+        }
+      }
+    }
+    assert.deepEqual(gaps, [], gaps.join('; '));
+  });
+
   test('validation passes the example registry too', async () => {
     // It is the file a user is told to copy and edit, so it has to survive the
     // same rules — including the paid entries it exists to demonstrate.
