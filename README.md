@@ -125,7 +125,10 @@ export INFERENCEMESH_TOKENS=$(node -e "console.log(require('crypto').randomBytes
 npx inferencemesh serve
 ```
 
-Then point any OpenAI client at it:
+Then point any OpenAI client at it — checked against the official `openai`
+package on 2026-08-22, not just asserted: `models.list()`, a completion with
+usage, a streamed completion, and a mistyped profile arriving as a
+`BadRequestError` with status 400 rather than something the SDK would retry.
 
 ```sh
 curl localhost:8910/v1/chat/completions \
