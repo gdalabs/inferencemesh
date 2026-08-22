@@ -39,7 +39,7 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 ## Commands
 
 ```sh
-npm test                 # build, then 148 tests — no network needed
+npm test                 # build, then the whole suite — no network, no key
 npm run build
 npm run build:binary     # single executable, runs without Node installed
 node dist/src/cli.js route free --language=ja   # explain a decision, offline

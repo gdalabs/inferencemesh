@@ -108,6 +108,18 @@ describe('registry loading', () => {
     assert.doesNotThrow(() => validateRegistryFile(ok));
   });
 
+  test('validation passes the example registry too', async () => {
+    // It is the file a user is told to copy and edit, so it has to survive the
+    // same rules — including the paid entries it exists to demonstrate.
+    const raw = JSON.parse(
+      await (await import('node:fs/promises')).readFile(
+        new URL('../../providers.example.json', import.meta.url),
+        'utf8',
+      ),
+    );
+    assert.ok(validateRegistryFile(raw).providers.length >= 1);
+  });
+
   test('validation passes the registry that ships with the package', async () => {
     const raw = JSON.parse(
       await (await import('node:fs/promises')).readFile(

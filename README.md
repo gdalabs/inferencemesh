@@ -401,7 +401,7 @@ send anything you would mind being logged.
 ## Development
 
 ```sh
-npm test        # builds, then runs the suite (83 tests, no network)
+npm test        # builds, then runs the suite (no network, no key)
 npm run build
 ```
 

@@ -225,6 +225,55 @@ describe('gateway — setup and keys', () => {
     assert.deepEqual(saved, {}, 'nothing was written');
     assert.equal(JSON.stringify(body).includes(SECRET), false, 'the rejected key is not echoed back');
   });
+
+  test('nothing about a key reaches the console, on either path', async () => {
+    // The README says keys are never logged and that tests enforce it. Half of
+    // that was true — /v1/providers was covered — and the logging half was a
+    // claim with nothing behind it. A key that reaches stdout outlives the
+    // process in a journal, which is the whole reason the rule exists.
+    const lines: string[] = [];
+    const real = { log: console.log, error: console.error, warn: console.warn };
+    console.log = console.error = console.warn = (...a: unknown[]) => {
+      lines.push(a.map(String).join(' '));
+    };
+    try {
+      for (const outcome of ['works', 'fails'] as const) {
+        const { fetch } = fakeFetch(() =>
+          outcome === 'works' ? okChat('hi') : errorResponse(401, `invalid api key ${SECRET}`),
+        );
+        const configs = fixtureProviders();
+        const mesh = new InferenceMesh({
+          registry: new Registry(configs, { env: FIXTURE_ENV }),
+          fetchImpl: fetch,
+        });
+        await handleRequest(
+          new Request('http://localhost/v1/keys', {
+            method: 'POST',
+            headers: { ...auth, 'content-type': 'application/json' },
+            body: JSON.stringify({ providerId: 'alpha', key: SECRET }),
+          }),
+          {
+            mesh,
+            tokens: new Set(['secret']),
+            keyStore: {
+              async save() {},
+              async reload() {
+                return new Registry(configs, { env: FIXTURE_ENV });
+              },
+              providerConfigs: () => configs,
+            },
+          },
+        );
+      }
+    } finally {
+      console.log = real.log;
+      console.error = real.error;
+      console.warn = real.warn;
+    }
+    const printed = lines.join('\n');
+    assert.equal(printed.includes(SECRET), false, `a key was printed: ${printed}`);
+    assert.equal(printed.includes('secret'), false, 'nor the bearer token');
+  });
 });
 
 describe('gateway — CORS', () => {
