@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = b7b929a（push済・PRIVATE）。テスト270件 全pass。
+現在地点: origin/main = fe9ec63（push済・PRIVATE）。テスト280件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -28,6 +28,12 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ 「同じコードが Worker でも動く」をテストで固定（commit fe9ec63, push済）。
+  index.ts から辿れる範囲に node: の import が入ったら落ちる。**わざと壊して発火を確認済み**
+- ✅ `expiresAt` を probe / route にも出すようにした（commit 549b3fa, push済）。
+  sync のレポートは「レジストリを作り直す時」にしか読まれないので、定期実行する側に出す
+- ✅ 簡体/繁体の区別（commit 8bfacf7, push済）。`zh` 単体は両方を受け入れる
 
 - ✅ README の「鍵はログに出ない — テストで強制」が**半分しか強制されていなかった**ので
   テストを追加（commit b7b929a, push済）。ドキュメントの古いテスト数（148/83）も削除
