@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = ef46158（push済・PRIVATE）。テスト302件 全pass。
+現在地点: origin/main = c480e8c（push済・PRIVATE）。テスト312件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -28,6 +28,14 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ 起動時エラー2件（commit c480e8c, push済）: ポート衝突が生のスタックトレース /
+  `INFERENCEMESH_REGISTRY` のタイプミスで黙って埋め込みレジストリにフォールバック
+- ✅ ターミナル版 setup が Cloudflare の account id を聞いていなかった（commit 53aba28, push済）。
+  ブラウザ版には最初から入力欄がある。鍵だけ貼っても必ず検証に失敗する状態だった
+- ✅ 🔴 package.json の `bin`/`exports`/`types` が**存在しないパス**を指していた（commit 524c723, push済）。
+  実体は `dist/src/…`。公開すれば `npx inferencemesh` も `import` も即壊れる。
+  実際に pack → 空プロジェクトに install → bin 実行・import・型定義まで確認
 
 - ✅ CLI/ゲートウェイの入力検証（commit ef46158, push済）。バンドル版で全コマンドを叩いて発見:
   存在しないプロファイルでスタックトレース / `--privacy` `--capabilities` の打ち間違いが
