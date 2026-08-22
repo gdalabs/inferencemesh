@@ -1,10 +1,46 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = 95d0deb（push済・PRIVATE）。テスト323件 全pass。
+現在地点: origin/main = edfabc8（push済・PRIVATE）。テスト331件 全pass（Node 20 / 22）。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
 （従量課金）。オフラインで完結する作業だけを進める。実測が要る項目は P3 に置いてある。
+
+
+## Autonomous Session 2026-08-22
+
+- Summary: 配布物（npm パッケージ・単一バイナリ・コンテナ・インストーラ）が
+  **どれも新規ユーザーの最初の一歩で壊れていた**のを実測で見つけて直した。
+  あわせて ROADMAP Now の1件（llm7 の同時実行上限）を実測で確定し、
+  「ドキュメントが黙って古くなる」箇所をテストで固定した。
+- Completed: 下の「完了」節に全件（commit 単位で 30 本、すべて push 済）
+- Files changed: `src/cli.ts` `src/setup.ts` `src/server/node.ts` `src/ledger.ts`
+  `src/config.ts` `src/registry.ts` `src/sync.ts` `src/catalogs.ts` `src/language-probe.ts`
+  `src/gateway.ts` `src/mesh.ts` `src/probe-report.ts`(新) `src/version.ts`(新)
+  `examples/worker.ts`(新) `Dockerfile` `install.sh` `package.json` `providers.default.json`
+  `.github/workflows/ci.yml`(新) `README.md` `ROADMAP.md` `CLAUDE.md` + テスト9ファイル
+- Validation: `npm test` 331件（Node 20 / Node 22 の両方で実行）/ クリーンビルド /
+  クローンして `npm ci` から再現 / `docker build` + コンテナ healthy /
+  `npm pack` → 空プロジェクトに install → bin・import・型定義 /
+  単一バイナリを実際にビルドして起動 / 公式 OpenAI SDK で4経路 /
+  `install.sh` を file:// のローカル配布物で全5経路
+- Git: gdalabs/inferencemesh (PRIVATE) / main / 30 commits / 全て push 済 / 未 push なし
+- Decisions:
+  - **llm7 の maxConcurrent=1 を registry に書いた**。鍵不要なので誰の無料枠も使わずに
+    測れる唯一の対象で、3回再現した。他プロバイダは本人が「その枠を使ってよい」と
+    決めるまで測らない
+  - **`sync` の新規プロバイダ枠を `public` に変更**（従来 `internal`）。機密性は人間の判断
+  - **he/el/hy/ka/bn/ta のプロンプトは書かなかった**。検証できない言語の文面を自作すると
+    測定器そのものが検証不能になる
+  - **`.env.example` は触っていない**。secrets フックがそのファイル名を含むコマンドを
+    止めるため、回避せず本人の手に残した
+- Pending approval: **公開（public 化）の判断**。監査は通っている（下記）
+- Problems / Unresolved:
+  - リリースワークフローは**一度も走っていない**（タグが無い）。最初のタグが唯一の検証機会
+  - ヒンディー語とマラーティー語は判定不能のまま（区別する文字が無い）
+  - 未登録の無料モデル18件は probe するまで採用しない（鍵が要る）
+- Next: ①公開判断 → ②最初のタグでリリース経路を検証 → ③OpenRouter の18件を probe して採用
+- Cost requests: 無し（今日の作業は全て無料経路のみ。OPENROUTER_API_KEY は未使用）
 
 ## P1
 
