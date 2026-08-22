@@ -56,6 +56,34 @@ describe('model addressing', () => {
     });
     assert.equal(n, 20 + 100);
   });
+
+  test('Japanese is not counted with an English rule', () => {
+    // Four characters per token is English. Japanese runs closer to one, so
+    // counting it the same way under-estimated a prompt roughly fourfold —
+    // and a daily token cap that under-estimates admits four times what it
+    // should, which is the over-spend the ledger exists to prevent.
+    const ja = '空は灰色の雲に覆われています';
+    const n = estimateTokens({
+      model: 'mesh/free',
+      messages: [{ role: 'user', content: ja }],
+      max_tokens: 0,
+    });
+    assert.equal(n, ja.length, 'one token per character, not a quarter of one');
+  });
+
+  test('a mixed prompt counts each script by its own rule', () => {
+    const n = estimateTokens({
+      model: 'mesh/free',
+      messages: [{ role: 'user', content: `${'a'.repeat(40)}空は灰色` }],
+      max_tokens: 0,
+    });
+    assert.equal(n, 10 + 4);
+  });
+
+  test('the default output allowance is still added', () => {
+    const n = estimateTokens({ model: 'mesh/free', messages: [{ role: 'user', content: '' }] });
+    assert.equal(n, 512);
+  });
 });
 
 describe('mesh — happy path', () => {

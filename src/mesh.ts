@@ -60,20 +60,37 @@ export interface MeshOptions {
 /**
  * Cheap token estimate for quota admission only.
  *
- * ~4 characters per token is right for English and wrong for Japanese (closer
- * to 1). It is used exclusively to admit against a *daily* cap, where being
- * off by 2x costs an early cutoff rather than a bad answer — real usage is
- * booked from the provider's own count once the call returns.
+ * Four characters per token is an English rule. Japanese and Chinese run closer
+ * to one token per character, so counting every character the same way
+ * under-estimated a Japanese prompt roughly fourfold — and the error runs in
+ * the dangerous direction: a daily token cap admits four times what it should
+ * and the over-spend shows up as the provider cutting you off, which is the one
+ * thing this ledger exists to avoid. (The comment here used to claim the
+ * opposite, that being off cost an early cutoff. For English it would have.)
+ *
+ * So ASCII is counted at 4 characters per token and everything else at 1. That
+ * over-estimates Cyrillic and Greek by roughly 2x, which is the harmless
+ * direction: it reserves a little too much of a daily allowance rather than
+ * spending one that is already gone. Real usage is booked from the provider's
+ * own count once the call returns, so this only ever gates admission.
  */
 export function estimateTokens(req: ChatRequest): number {
-  let chars = 0;
+  let tokens = 0;
+  const count = (text: string) => {
+    let ascii = 0;
+    for (const ch of text) {
+      if ((ch.codePointAt(0) ?? 0) < 128) ascii++;
+      else tokens += 1;
+    }
+    tokens += Math.ceil(ascii / 4);
+  };
   for (const m of req.messages) {
-    if (typeof m.content === 'string') chars += m.content.length;
+    if (typeof m.content === 'string') count(m.content);
     else if (Array.isArray(m.content)) {
-      for (const p of m.content) if (p.type === 'text') chars += p.text.length;
+      for (const p of m.content) if (p.type === 'text') count(p.text);
     }
   }
-  return Math.ceil(chars / 4) + (req.max_tokens ?? 512);
+  return tokens + (req.max_tokens ?? 512);
 }
 
 /**
