@@ -96,7 +96,12 @@ describe('nothing pulls package.json into the bundle', () => {
     await walk(dir);
     const offenders: string[] = [];
     for (const f of files) {
-      const source = await readFile(f, 'utf8');
+      // Comments stripped first. The file that explains this rule quotes the
+      // import it forbids, and the first version of this check failed on that
+      // — a detector reading prose as code, which is its own bug class.
+      const source = (await readFile(f, 'utf8'))
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
       if (/from\s+'[^']*package\.json'/.test(source)) offenders.push(f.slice(ROOT.length + 1));
     }
     assert.deepEqual(offenders, [], offenders.join('; '));
