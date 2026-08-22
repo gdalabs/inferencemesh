@@ -374,3 +374,30 @@ describe('the setup page is self-contained', () => {
     }
   });
 });
+
+describe('loading the registry file', () => {
+  test('a path the user chose and got wrong is an error, not a silent fallback', async () => {
+    // The fallback exists so a bundled build with no JSON on disk still works.
+    // Applying it to a path somebody typed answers their typo by serving a
+    // different registry than the one they asked for, and nothing looks wrong.
+    const { loadRegistryFile } = await import('../src/server/node.js');
+    await assert.rejects(
+      () => loadRegistryFile('/nonexistent/registry.json', true),
+      /INFERENCEMESH_REGISTRY points at/,
+    );
+  });
+
+  test('the discovered path still falls back, which is what bundles need', async () => {
+    const { loadRegistryFile } = await import('../src/server/node.js');
+    const raw = (await loadRegistryFile('/nonexistent/registry.json', false)) as {
+      providers: unknown[];
+    };
+    assert.ok(Array.isArray(raw.providers) && raw.providers.length > 0);
+  });
+
+  test('no path at all is the embedded registry', async () => {
+    const { loadRegistryFile } = await import('../src/server/node.js');
+    const raw = (await loadRegistryFile(null)) as { providers: unknown[] };
+    assert.ok(raw.providers.length > 0);
+  });
+});

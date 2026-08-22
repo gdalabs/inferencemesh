@@ -71,6 +71,7 @@ export class FileKeyStore implements KeyStore {
     private readonly keysPath: string,
     private readonly registryPath: string,
     private readonly baseEnv: NodeJS.ProcessEnv,
+    private readonly registryPathExplicit = false,
   ) {}
 
   async init(): Promise<void> {
@@ -137,7 +138,9 @@ export class FileKeyStore implements KeyStore {
   private configs: ProviderConfig[] = [];
 
   async reload(): Promise<ReturnType<typeof registryFrom>> {
-    const raw = (await loadRegistryFile(this.registryPath)) as { providers: ProviderConfig[] };
+    const raw = (await loadRegistryFile(this.registryPath, this.registryPathExplicit)) as {
+      providers: ProviderConfig[];
+    };
     this.configs = raw.providers;
     return registryFrom(raw, { env: this.env() });
   }
@@ -146,15 +149,24 @@ export class FileKeyStore implements KeyStore {
 /**
  * Read the registry from `path`, falling back to the copy compiled in.
  *
- * The fallback is what makes a single-file build work at all: there is no
- * JSON on disk beside a bundled script or an embedded executable.
+ * The fallback is what makes a single-file build work at all: there is no JSON
+ * on disk beside a bundled script or an embedded executable.
+ *
+ * `explicit` marks a path the user chose with INFERENCEMESH_REGISTRY. Falling
+ * back for that one silently answers a typo'd path by serving a different
+ * registry than the one asked for — the config is ignored and everything looks
+ * fine, which is the worst way for a setting to fail.
  */
-export async function loadRegistryFile(path: string | null): Promise<unknown> {
+export async function loadRegistryFile(path: string | null, explicit = false): Promise<unknown> {
   if (path) {
     try {
       return JSON.parse(await readFile(path, 'utf8')) as unknown;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' && explicit) {
+        throw new Error(`INFERENCEMESH_REGISTRY points at '${path}', which does not exist`);
+      }
+      if (code !== 'ENOENT') throw err;
     }
   }
   return EMBEDDED_REGISTRY;
@@ -241,6 +253,8 @@ export interface ServerConfig {
   host: string;
   tokens: Set<string>;
   registryPath: string;
+  /** True when INFERENCEMESH_REGISTRY named it, rather than the path search. */
+  registryPathExplicit: boolean;
   ledgerPath: string;
   keysPath: string;
   allowedOrigins: string[];
@@ -284,6 +298,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
     host: env['INFERENCEMESH_HOST'] ?? '127.0.0.1',
     tokens,
     registryPath: env['INFERENCEMESH_REGISTRY'] ?? defaultRegistryPath(),
+    registryPathExplicit: Boolean(env['INFERENCEMESH_REGISTRY']),
     ledgerPath: env['INFERENCEMESH_LEDGER'] ?? resolve(process.cwd(), '.inferencemesh/ledger.json'),
     keysPath: env['INFERENCEMESH_KEYS'] ?? resolve(process.cwd(), '.inferencemesh/keys.env'),
     allowedOrigins: (env['INFERENCEMESH_ALLOWED_ORIGINS'] ?? '')
@@ -296,7 +311,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): ServerConfi
 }
 
 export async function buildMesh(cfg: ServerConfig): Promise<{ mesh: InferenceMesh; keyStore: FileKeyStore }> {
-  const keyStore = new FileKeyStore(cfg.keysPath, cfg.registryPath, process.env);
+  const keyStore = new FileKeyStore(cfg.keysPath, cfg.registryPath, process.env, cfg.registryPathExplicit);
   await keyStore.init();
   const registry = await keyStore.reload();
   for (const w of registry.warnings) {
@@ -366,6 +381,27 @@ export async function main(): Promise<void> {
         res.end(JSON.stringify({ error: { message: 'internal error', type: 'internal_error' } }));
       }
     })();
+  });
+
+  // The most common operational failure there is, and it used to arrive as a
+  // raw stack trace with the one thing the operator needs — the name of the
+  // variable that sets the port — nowhere in it.
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[inferencemesh] port ${cfg.port} is already in use. ` +
+          'Set INFERENCEMESH_PORT to a free one, or stop what is holding it.',
+      );
+    } else if (err.code === 'EACCES') {
+      console.error(
+        `[inferencemesh] not allowed to bind ${cfg.host}:${cfg.port}. ` +
+          'Ports below 1024 need root — run on a high port and put a proxy in front.',
+      );
+    } else {
+      console.error(`[inferencemesh] could not listen on ${cfg.host}:${cfg.port}: ${err.message}`);
+    }
+    process.exitCode = 1;
+    server.close();
   });
 
   server.listen(cfg.port, cfg.host, () => {

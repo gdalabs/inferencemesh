@@ -43,7 +43,7 @@ function fail(msg: string): never {
 
 async function loadRegistry() {
   const cfg = configFromEnv();
-  const raw = await loadRegistryFile(cfg.registryPath || null);
+  const raw = await loadRegistryFile(cfg.registryPath || null, cfg.registryPathExplicit);
   const registry = registryFrom(raw);
   for (const w of registry.warnings) {
     console.warn(`warn: provider '${w.providerId}' skipped: ${w.reason}`);
@@ -492,7 +492,10 @@ async function run(): Promise<void> {
       // Loaded the same way every other command loads it, so a build with no
       // registry file on disk falls back to the embedded one instead of
       // crashing on an empty path.
-      process.exitCode = await runSetup(await loadRegistryFile(cfg.registryPath || null), envPath);
+      process.exitCode = await runSetup(
+        await loadRegistryFile(cfg.registryPath || null, cfg.registryPathExplicit),
+        envPath,
+      );
       break;
     }
     case 'sync':
