@@ -20,11 +20,18 @@ RUN npm ci --no-audit --no-fund
 COPY tsconfig.json ./
 COPY src ./src
 COPY test ./test
+COPY examples ./examples
 # The suite validates the registry that ships with the package, so it has to be
 # present at build time too. Leaving it out made the tests pass on a developer
 # machine and fail inside the image — which is exactly what running them here
 # is for.
-COPY providers.default.json providers.example.json ./
+#
+# The same now goes for the README and the Worker example: the suite checks
+# that every setting the server reads is documented, and that the snippet in
+# the README is the file the build compiles. Those tests are about the package
+# being coherent, so they belong in the build that produces it. This exact
+# omission failed the image build the day the examples were added.
+COPY providers.default.json providers.example.json README.md LICENSE ./
 RUN npx tsc -p tsconfig.json
 
 # The test suite needs no network, so it runs at build time. An image that
@@ -48,7 +55,8 @@ ENV NODE_ENV=production \
 ENV INFERENCEMESH_ALLOW_ANY_HOST=1
 
 COPY --from=build /app/dist ./dist
-COPY package.json providers.default.json providers.example.json ./
+# The licence travels with the image; it is MIT software being redistributed.
+COPY package.json providers.default.json providers.example.json LICENSE README.md ./
 COPY scripts ./scripts
 # No `npm install` here on purpose: the package has zero runtime dependencies,
 # so the runtime image contains the compiled output and nothing else. There is
