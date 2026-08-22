@@ -34,9 +34,18 @@
   judged but are asked in English, which measures instruction-following rather
   than the language. A prompt written in a language nobody here can check is an
   instrument nobody can verify, so these need a speaker, not a guess.
-- **Prebuilt binaries.** `npm run build:binary` produces a working executable,
-  but one platform at a time. CI should build macOS arm64/x64, Linux x64/arm64
-  and Windows, publish them to Releases, and back an `install.sh`.
+- **Cut the first release.** The workflow builds macOS arm64/x64, Linux
+  x64/arm64 and Windows, smoke-tests each binary, publishes them with
+  `SHA256SUMS`, and `install.sh` verifies against that file and refuses to
+  install without it. None of it has ever run: no tag has been pushed. The
+  local half is exercised — the executable builds, runs, and reports its
+  version, and the installer was tested against a local release directory over
+  `file://` for all five of its paths — but a workflow that has never fired is
+  not known to work, and the first tag is the only way to find out.
+
+  Two things it will exercise for the first time: `npm ci` on a clean runner
+  (the lockfile has never been installed anywhere but here) and postject on
+  macOS and Windows runners, which is the step most likely to differ.
 
 ## Next
 
