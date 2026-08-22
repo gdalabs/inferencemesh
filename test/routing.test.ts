@@ -49,10 +49,58 @@ describe('registry loading', () => {
       ['negative context window', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 0, price: { inPerMTok: 0, outPerMTok: 0 }, quality: 0.5 }] }] }],
       ['a paid model with no priceVerifiedAt', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 100, price: { inPerMTok: 3, outPerMTok: 15 }, quality: 0.5 }] }] }],
       ['a paid model with a non-date priceVerifiedAt', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 100, price: { inPerMTok: 3, outPerMTok: 15 }, quality: 0.5, priceVerifiedAt: 'recently' }] }] }],
+      // A misspelled capability used to validate fine and then lose every
+      // request that asked for it — the "mysteriously empty candidate pool
+      // three weeks later" this function exists to prevent.
+      ['a misspelled capability', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text', 'tols'], contextWindow: 100, price: { inPerMTok: 0, outPerMTok: 0 } }] }] }],
+      ['a misspelled privacy tier', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 100, price: { inPerMTok: 0, outPerMTok: 0 }, maxPrivacy: 'internel' }] }] }],
+      // 72 for 0.72 does not error anywhere else; it just wins every
+      // comparison it is in, for every caller asking for that language.
+      ['a language score outside 0..1', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 100, price: { inPerMTok: 0, outPerMTok: 0 }, languages: { ja: 72 } }] }] }],
+      ['a non-date expiresAt', { providers: [{ ...mkProvider('a'), models: [{ id: 'm', capabilities: ['text'], contextWindow: 100, price: { inPerMTok: 0, outPerMTok: 0 }, expiresAt: 'next month' }] }] }],
+      ['a defaultProfile nobody defined', { providers: [mkProvider('a')], defaultProfile: 'chepa' }],
     ];
     for (const [name, bad] of cases) {
       assert.throws(() => validateRegistryFile(bad), /registry:|not an object/, `should reject: ${name}`);
     }
+  });
+
+  test('the things that are merely absent are still allowed', () => {
+    // Absent is unrated, not invalid — the whole point of the sync rules.
+    const ok = {
+      providers: [
+        {
+          ...mkProvider('a'),
+          models: [
+            {
+              id: 'm',
+              capabilities: ['text', 'tools'],
+              contextWindow: 100,
+              price: { inPerMTok: 0, outPerMTok: 0 },
+              languages: { ja: 0, '*': 1 },
+              expiresAt: '2026-08-24',
+              maxPrivacy: 'internal',
+            },
+          ],
+        },
+      ],
+      defaultProfile: 'cheap',
+    };
+    assert.doesNotThrow(() => validateRegistryFile(ok));
+  });
+
+  test('a defaultProfile the file defines itself is accepted', () => {
+    const ok = {
+      providers: [mkProvider('a')],
+      defaultProfile: 'mine',
+      profiles: {
+        mine: {
+          name: 'mine',
+          weights: { quality: 1, cost: 0, latency: 0, language: 0, reliability: 0 },
+        },
+      },
+    };
+    assert.doesNotThrow(() => validateRegistryFile(ok));
   });
 
   test('a free model needs no priceVerifiedAt — 0 cannot go stale', () => {
