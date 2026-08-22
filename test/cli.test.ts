@@ -1,7 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
-import { execFile } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { execFile, spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import type { AddressInfo } from 'node:net';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -147,5 +151,77 @@ describe('cli — the offline commands still work', () => {
     // instead. execFile reads through a pipe, so a regression shows up here.
     const r = await cli(['route', 'free']);
     assert.match(r.out.trimEnd(), /\$[\d.]+\/MTok\s+\w+$/, 'the last line is complete');
+  });
+});
+
+describe('cli — setup, all the way through', () => {
+  /** A provider that answers the one request `setup` makes to verify a key. */
+  async function stubProvider() {
+    const seen: Array<{ auth: string | undefined }> = [];
+    const server = createServer((req, res) => {
+      seen.push({ auth: req.headers.authorization });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: 'x',
+          object: 'chat.completion',
+          created: 0,
+          model: 'm',
+          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        }),
+      );
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as AddressInfo).port;
+    return { seen, port, close: () => new Promise<void>((r) => server.close(() => r())) };
+  }
+
+  test('a key typed on a pipe is verified, then written', async () => {
+    // The wizard's whole promise is that "saved" means "checked". Nothing but
+    // running it end to end shows that the pipe, the prompt loop, the live
+    // verification and the file write hold together — and the pipe half is
+    // where readline/promises silently never settles.
+    const stub = await stubProvider();
+    const dir = await mkdtemp(join(tmpdir(), 'im-cli-setup-'));
+    const registry = join(dir, 'registry.json');
+    const keyFile = join(dir, 'keys');
+    await (await import('node:fs/promises')).writeFile(
+      registry,
+      JSON.stringify({
+        providers: [
+          {
+            id: 'stub',
+            kind: 'openai-compat',
+            baseUrl: `http://127.0.0.1:${stub.port}/v1`,
+            apiKeyEnv: 'STUB_KEY_FOR_CLI_TEST',
+            maxPrivacy: 'public',
+            signupUrl: 'https://example.invalid',
+            models: [
+              { id: 'm', capabilities: ['text'], contextWindow: 1000, price: { inPerMTok: 0, outPerMTok: 0 } },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const child = spawn(process.execPath, [CLI, 'setup', keyFile], {
+      env: {
+        PATH: process.env['PATH'] ?? '',
+        INFERENCEMESH_REGISTRY: registry,
+        INFERENCEMESH_LANG: 'en',
+      },
+    });
+    let out = '';
+    child.stdout.on('data', (d) => (out += String(d)));
+    child.stdin.write('sk-typed-by-a-person\n');
+    child.stdin.end();
+    const code = await new Promise<number>((r) => child.on('close', (c) => r(c ?? 1)));
+    await stub.close();
+
+    assert.equal(code, 0, out);
+    assert.match(out, /OK — answered in/, 'the key was checked against the provider');
+    assert.equal(stub.seen.length, 1, 'exactly one verification request');
+    assert.equal(stub.seen[0]?.auth, 'Bearer sk-typed-by-a-person');
+    assert.match(await readFile(keyFile, 'utf8'), /^STUB_KEY_FOR_CLI_TEST=sk-typed-by-a-person$/m);
   });
 });
