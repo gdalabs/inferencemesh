@@ -31,7 +31,11 @@ COPY examples ./examples
 # the README is the file the build compiles. Those tests are about the package
 # being coherent, so they belong in the build that produces it. This exact
 # omission failed the image build the day the examples were added.
-COPY providers.default.json providers.example.json README.md LICENSE ./
+# docker-compose.yml and install.sh are here for the suite, not for the image:
+# it checks that every provider variable is passed into the container and that
+# the installer's settings are documented. Both tests are about this package
+# being coherent, which is what this build is producing.
+COPY providers.default.json providers.example.json README.md LICENSE docker-compose.yml install.sh ./
 RUN npx tsc -p tsconfig.json
 
 # The test suite needs no network, so it runs at build time. An image that
