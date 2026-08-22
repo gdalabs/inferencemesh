@@ -118,3 +118,25 @@ describe('the version is stated once', () => {
     assert.equal(VERSION, (await pkg())['version']);
   });
 });
+
+describe('the container can be given every key the registry wants', () => {
+  test('compose passes each provider variable through', async () => {
+    // A provider added to the registry but not to the compose file cannot be
+    // configured by anybody running the container — the deployment the README
+    // leads with. Nothing fails; the provider is simply always skipped.
+    const [raw, compose] = await Promise.all([
+      readFile(resolve(ROOT, 'providers.default.json'), 'utf8'),
+      readFile(resolve(ROOT, 'docker-compose.yml'), 'utf8'),
+    ]);
+    const registry = JSON.parse(raw) as {
+      providers: Array<{ apiKeyEnv: string; accountIdEnv?: string }>;
+    };
+    const needed = new Set<string>();
+    for (const p of registry.providers) {
+      needed.add(p.apiKeyEnv);
+      if (p.accountIdEnv) needed.add(p.accountIdEnv);
+    }
+    const missing = [...needed].filter((v) => !compose.includes(`${v}:`)).sort();
+    assert.deepEqual(missing, [], `not passed into the container: ${missing.join(', ')}`);
+  });
+});
