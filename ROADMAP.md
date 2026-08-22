@@ -22,16 +22,13 @@
   see *Rate what sync cannot* below — and until then the honest shape is
   evidence stored beside the human score, the way `evidencePrivacy` is, rather
   than merged into it.
-- **A judge for languages that share a script.** Script judging now covers
-  ja/zh/ko/ru/ar/hi/th/he/el/hy/ka/bn/ta, and Latin-script languages are told
-  apart by function words for the eleven in that table. Two gaps remain, and
-  they are different in kind. A language with neither (Swahili, Tagalog) comes
-  back `unjudged`, which is honest — nothing is claimed. But a language that
-  *shares* a script with the one that owns the tag is wrong rather than silent:
-  a Ukrainian reply to a `ru` request is scored as a match, and the same holds
-  for Marathi under `hi` and Persian under `ar`. Distinguishing them needs the
-  letters unique to each (і/ї/є/ґ for Ukrainian, پ/چ/ژ/گ for Persian), which is
-  cheap to add and worth doing before anyone measures a Cyrillic claim.
+- **A judge for the script pairs that have no distinguishing letter.** Ukrainian
+  under `ru` and Persian under `ar` are now separated by the letters exclusive
+  to each (і/ї/є/ґ, پ/چ/ژ/گ), so a reply in the wrong one no longer confirms a
+  claim. Hindi and Marathi share Devanagari with no such letter — separating
+  them needs vocabulary, not an alphabet — and Belarusian is not separated from
+  Ukrainian because nobody has asked for `be`. Those stay `match`-on-script,
+  which is the remaining known way this can be wrong rather than silent.
 - **Native probe prompts for the newer scripts.** he/el/hy/ka/bn/ta can be
   judged but are asked in English, which measures instruction-following rather
   than the language. A prompt written in a language nobody here can check is an

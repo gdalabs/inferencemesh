@@ -343,9 +343,14 @@ Judging covers the scripts that identify a language on their own — Japanese
 (kana, so Chinese is not accepted as Japanese), Chinese, Korean, Russian,
 Arabic, Hindi, Thai, Hebrew, Greek, Armenian, Georgian, Bengali, Tamil — plus
 eleven Latin-script languages told apart by function words. Anything else is
-reported `unjudged` rather than failed. One real limitation: a language sharing
-a script with the one that owns the tag (Ukrainian under `ru`, Persian under
-`ar`) is scored as a match.
+reported `unjudged` rather than failed.
+
+Where languages share a script, the letters that separate them are checked too:
+a Ukrainian reply does not confirm a Russian claim, and a Persian one does not
+pass as Arabic. That check may only reject, never invent — a reply carrying
+nothing distinctive keeps the script's verdict, and one carrying two languages'
+exclusive letters at once is treated as no evidence rather than a finding. Pairs
+with no letter to separate them (Hindi and Marathi) are still not told apart.
 
 Each candidate is asked two questions **written in that language** — an English "reply in Japanese"
 instruction would measure instruction-following instead — and the reply is graded by script and

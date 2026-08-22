@@ -300,3 +300,62 @@ describe('scripts that are their own answer', () => {
     assert.equal(judgeLanguage(maths, 'en').verdict, 'match');
   });
 });
+
+describe('languages that share a script', () => {
+  const UK = 'Небо вкрите сірими хмарами, і вітер стає вологим перед дощем. Чути грім вдалині.';
+  const FA = 'آسمان پیش از باران با ابرهای خاکستری پوشیده شده و باد مرطوب می‌شود.';
+
+  test('a Ukrainian reply does not confirm a Russian claim', () => {
+    // The failure this exists for. A script check answers "is this Cyrillic",
+    // and answering `match` there confirms a registry claim with evidence that
+    // does not support it — worse than returning unjudged.
+    const j = judgeLanguage(UK, 'ru');
+    assert.equal(j.verdict, 'other', j.reason);
+    assert.equal(j.detected, 'uk');
+  });
+
+  test('Russian is still Russian', () => {
+    assert.equal(judgeLanguage(RU, 'ru').verdict, 'match');
+  });
+
+  test('Ukrainian can now be asked for on its own', () => {
+    assert.equal(judgeLanguage(UK, 'uk').verdict, 'match');
+  });
+
+  test('a Russian reply to a Ukrainian request is caught', () => {
+    const j = judgeLanguage(RU, 'uk');
+    assert.equal(j.verdict, 'other');
+    assert.equal(j.detected, 'ru');
+  });
+
+  test('Persian does not pass as Arabic', () => {
+    const j = judgeLanguage(FA, 'ar');
+    assert.equal(j.verdict, 'other', j.reason);
+    assert.equal(j.detected, 'fa');
+  });
+
+  test('Arabic is still Arabic', () => {
+    const ar = 'السماء مغطاة بغيوم رمادية قبل هطول المطر، والرياح تصبح رطبة.';
+    assert.equal(judgeLanguage(ar, 'ar').verdict, 'match');
+  });
+
+  test('Cyrillic that gives nothing away stays a match rather than a guess', () => {
+    // No і/ї/є/ґ and no ы/э/ъ. The letters do not separate the languages, so
+    // the script verdict stands — the check may only reject, never invent.
+    const ambiguous = 'Спасибо, до свидания.';
+    assert.equal(judgeLanguage(ambiguous, 'ru').verdict, 'match');
+    assert.equal(judgeLanguage(ambiguous, 'uk').verdict, 'match');
+  });
+
+  test('a mixture that names two languages at once is not a finding', () => {
+    // Both alphabets' exclusive letters present: quoted text, or a model
+    // switching mid-answer. Two votes is no vote.
+    const mixed = `${UK} ${RU}`;
+    assert.equal(judgeLanguage(mixed, 'ru').verdict, 'match');
+  });
+
+  test('identifying a non-matching reply uses the same refinement', () => {
+    const j = judgeLanguage(UK, 'ja');
+    assert.equal(j.detected, 'uk', 'not the script default');
+  });
+});

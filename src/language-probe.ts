@@ -164,13 +164,6 @@ const SCRIPT_RANGES: Array<[Script, RegExp]> = [
 /** Language tag reported when a script is unambiguous on its own. */
 const SCRIPT_LANGUAGE: Partial<Record<Script, LanguageTag>> = {
   hangul: 'ko',
-  // Each of these is the language this script is most often asked for, not the
-  // only one written in it. Cyrillic also writes Ukrainian, Bulgarian and
-  // Serbian; Devanagari also writes Marathi and Nepali; Arabic script also
-  // writes Persian and Urdu. A request for one of *those* tags finds no judge
-  // here and comes back `unjudged`, which is correct — what is not correct
-  // would be answering 'ru' to a reply that is Ukrainian, and that limitation
-  // is real: this cannot tell them apart.
   cyrillic: 'ru',
   arabic: 'ar',
   devanagari: 'hi',
@@ -182,6 +175,66 @@ const SCRIPT_LANGUAGE: Partial<Record<Script, LanguageTag>> = {
   bengali: 'bn',
   tamil: 'ta',
 };
+
+/**
+ * Languages that share a script, and the letters that give each one away.
+ *
+ * A script check alone answers "is this Cyrillic", which is not the question
+ * when the request was Russian and the reply is Ukrainian. That case is worse
+ * than an unjudged one: it reports a match, so a registry claim gets confirmed
+ * by evidence that does not support it.
+ *
+ * `only` is letters that appear in that language and not in its neighbours
+ * here — not a full alphabet. The test is deliberately weak in one direction:
+ * seeing another language's exclusive letters and none of the requested
+ * language's is enough to say "not this one", while seeing nothing either way
+ * leaves the script verdict alone. Distinguishing every pair is a research
+ * problem; refusing to confirm the obvious mismatches is not.
+ */
+interface ScriptVariant {
+  tag: LanguageTag;
+  only: RegExp;
+}
+
+const SCRIPT_VARIANTS: Partial<Record<Script, ScriptVariant[]>> = {
+  cyrillic: [
+    // і ї є ґ are Ukrainian; Russian writes и and has ы э ъ, which Ukrainian
+    // does not. Belarusian also has і, and is not separated from Ukrainian
+    // here — it would need ў, and nobody has asked for `be` yet.
+    { tag: 'uk', only: /[іїєґ]/i },
+    { tag: 'ru', only: /[ыэъ]/i },
+    { tag: 'sr', only: /[ђјљњћџ]/i },
+  ],
+  arabic: [
+    // The four Persian letters. Urdu has them too, plus retroflexes of its own.
+    { tag: 'ur', only: /[ٹڈڑںے]/ },
+    { tag: 'fa', only: /[پچژگ]/ },
+    { tag: 'ar', only: /[ةًٌٍ]/ },
+  ],
+};
+
+/** Every language tag this module can judge from a script. */
+const SCRIPT_OF_TAG = new Map<string, Script>();
+for (const [script, tag] of Object.entries(SCRIPT_LANGUAGE) as Array<[Script, LanguageTag]>) {
+  SCRIPT_OF_TAG.set(tag, script);
+}
+for (const [script, variants] of Object.entries(SCRIPT_VARIANTS) as Array<[Script, ScriptVariant[]]>) {
+  for (const v of variants) SCRIPT_OF_TAG.set(v.tag, script);
+}
+
+/**
+ * Within one script, which of its languages does this text look like?
+ *
+ * Returns the tag only when the letters actually say so. Null means the text
+ * carries nothing that separates them, which is the common case for a short
+ * reply and must not be read as agreement with whatever was asked.
+ */
+function variantOf(script: Script, text: string): LanguageTag | null {
+  const variants = SCRIPT_VARIANTS[script];
+  if (!variants) return null;
+  const seen = variants.filter((v) => v.only.test(text));
+  return seen.length === 1 ? (seen[0] as ScriptVariant).tag : null;
+}
 
 /**
  * Count the language-bearing characters by script.
@@ -363,12 +416,29 @@ export function judgeLanguage(text: string, tag: LanguageTag): LanguageJudgement
       : { verdict: 'other', share: zh, ...(identifyOther(counts, cleaned) ? { detected: identifyOther(counts, cleaned) as LanguageTag } : {}), reason: `only ${pct(zh)} Han` };
   }
 
-  for (const [script, lang] of Object.entries(SCRIPT_LANGUAGE) as Array<[Script, LanguageTag]>) {
-    if (want !== lang) continue;
-    const s = share(counts[script]);
-    return s >= 0.5
-      ? { verdict: 'match', share: s, reason: `${pct(s)} ${script}` }
-      : { verdict: 'other', share: s, ...(identifyOther(counts, cleaned) ? { detected: identifyOther(counts, cleaned) as LanguageTag } : {}), reason: `only ${pct(s)} ${script}` };
+  const wantScript = SCRIPT_OF_TAG.get(want);
+  if (wantScript) {
+    const s = share(counts[wantScript]);
+    if (s < 0.5) {
+      const detected = identifyOther(counts, cleaned);
+      return {
+        verdict: 'other',
+        share: s,
+        ...(detected ? { detected } : {}),
+        reason: `only ${pct(s)} ${wantScript}`,
+      };
+    }
+    // Right script, possibly the wrong language in it.
+    const variant = variantOf(wantScript, cleaned);
+    if (variant && variant !== want) {
+      return {
+        verdict: 'other',
+        share: s,
+        detected: variant,
+        reason: `${wantScript} script, but the letters are ${variant}, not ${want}`,
+      };
+    }
+    return { verdict: 'match', share: s, reason: `${pct(s)} ${wantScript}` };
   }
 
   if (LATIN_JUDGEABLE.has(want)) {
@@ -413,7 +483,7 @@ function identifyOther(
   if (top === 'kana') return 'ja';
   if (top === 'han') return counts.kana > 0 ? 'ja' : 'zh';
   if (top === 'latin') return guessLatin(cleaned)?.tag;
-  return SCRIPT_LANGUAGE[top];
+  return variantOf(top, cleaned) ?? SCRIPT_LANGUAGE[top];
 }
 
 function pct(x: number): string {
