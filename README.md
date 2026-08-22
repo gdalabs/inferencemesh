@@ -385,7 +385,7 @@ Turn that into an exit code:
 ```sh
 inferencemesh version          # which build this is
 inferencemesh probe            # calls every candidate once
-inferencemesh probe --json     # for a scheduler
+inferencemesh probe --json     # for a scheduler; carries `ending` too
 ```
 
 `probe` separates two findings that look alike and are not: a `404`/`400` means the id is gone and

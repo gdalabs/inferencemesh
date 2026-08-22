@@ -148,10 +148,16 @@ async function cmdProbe(argv: string[]): Promise<number> {
   const broken = results.filter((r) => r.verdict === 'broken');
   const limited = results.filter((r) => r.verdict === 'limited');
 
+  const today = new Date().toISOString().slice(0, 10);
+  const ending = expiryNotes(registry, today);
+
   if (json) {
+    // `ending` belongs here as much as in the text output: --json exists for a
+    // scheduler, and a free tier announcing its own end date is precisely the
+    // thing a scheduled check should be able to act on before it happens.
     console.log(
       JSON.stringify(
-        { probedAt: new Date().toISOString(), ok: broken.length === 0, results },
+        { probedAt: new Date().toISOString(), ok: broken.length === 0, results, ending },
         null,
         2,
       ),
@@ -166,9 +172,7 @@ async function cmdProbe(argv: string[]): Promise<number> {
         (limited.length ? `, ${limited.length} rate-limited (not a fault)` : '') +
         (broken.length ? `, ${broken.length} BROKEN` : ''),
     );
-    for (const n of expiryNotes(registry, new Date().toISOString().slice(0, 10))) {
-      console.log(`note  ${n}`);
-    }
+    for (const n of ending) console.log(`note  ${n}`);
   }
   // Only rot sets the exit code. Being rate limited is the free tier working.
   return broken.length === 0 ? 0 : 1;
