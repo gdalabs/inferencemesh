@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = ebd6569（push済・PRIVATE）。テスト263件 全pass。
+現在地点: origin/main = 80ec571（push済・PRIVATE）。テスト266件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -30,6 +30,14 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ `install.sh` を fail-closed に（commit 80ec571, push済）。SHA256SUMS が取れない/
+  エントリが無い場合に黙ってインストールしていた。`file://` のローカル配布物で全5経路を実測。
+  ついでに EXIT トラップの戻り値で「成功したのに exit 1」になる穴と、0711 のパーミッションも修正
+- ✅ `discover-providers.mjs` 3件（commit 2d474ac, push済）: 空のカタログ応答を diff 扱いして
+  全件 GONE + baseline 破壊 / 全カタログ失敗でも exit 0（「静かな週」と区別がつかない）/
+  `process.exit()` でパイプ出力の末尾を捨てる（cli.ts が一度学んだ問題の再発）
+- ✅ ledger の競合修正（commit 913c525, push済）。実測で rpm=2 に3件通っていた
 
 - ✅ 単一バイナリ/バンドルで `inferencemesh setup` が ENOENT で即死していたのを修正
   （commit 71e142c, push済）。release workflow と install.sh が配るのはこのビルド。
