@@ -21,16 +21,18 @@
     "cloudflare-workers"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./server": "./dist/server/node.js"
+    ".": "./dist/src/index.js",
+    "./server": "./dist/src/server/node.js"
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
   "bin": {
-    "inferencemesh": "./dist/cli.js"
+    "inferencemesh": "./dist/src/cli.js"
   },
   "files": [
-    "dist",
+    "dist/src",
+    "dist/providers.default.json",
     "providers.default.json",
+    "providers.example.json",
     "README.md",
     "LICENSE"
   ],
@@ -41,8 +43,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/test/",
-    "serve": "npm run build && node dist/server/node.js",
-    "probe": "npm run build && node dist/cli.js probe",
+    "serve": "npm run build && node dist/src/server/node.js",
+    "probe": "npm run build && node dist/src/cli.js probe",
     "bundle": "esbuild src/cli.ts --bundle --platform=node --target=node20 --format=cjs --outfile=build/bundle.cjs",
     "build:binary": "npm run build && npm run bundle && node --experimental-sea-config sea-config.json && cp \"$(command -v node)\" build/inferencemesh && postject build/inferencemesh NODE_SEA_BLOB build/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2"
   },
