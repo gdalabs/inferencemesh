@@ -419,13 +419,18 @@ async function cmdSync(argv: string[]): Promise<number> {
   }
 
   let provider = file.providers.find((p) => p.id === catalog.id);
+  const createdProvider = !provider;
   if (!provider) {
     provider = {
       id: catalog.id,
       kind: 'openai-compat',
       baseUrl: catalog.url.replace(/\/models$/, ''),
       apiKeyEnv: catalog.providerApiKeyEnv ?? catalog.apiKeyEnv ?? '',
-      maxPrivacy: 'internal',
+      // The lowest tier, deliberately. Generating `internal` would be sync
+      // deciding what a provider may be trusted with — the one judgement this
+      // whole file refuses to make on an existing entry, made silently on a
+      // new one. Raising it is a human's call against evidence they checked.
+      maxPrivacy: 'public',
       models: [],
     };
     file.providers.push(provider);
@@ -473,6 +478,12 @@ async function cmdSync(argv: string[]): Promise<number> {
   }
   await writeFile(out, `${JSON.stringify(file, null, 2)}\n`);
   console.log(`\nwrote ${out}`);
+  if (createdProvider) {
+    console.log(
+      `note: provider '${catalog.id}' was created at maxPrivacy 'public', the lowest tier. ` +
+        'Raise it yourself once you know what the provider does with your text.',
+    );
+  }
   // Non-zero on a hazard so a scheduled sync fails instead of scrolling past
   // the one line that says confidential text is going somewhere it should not.
   return hazards.length > 0 ? 3 : 0;

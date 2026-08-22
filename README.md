@@ -302,6 +302,10 @@ non-English caller — the same failure as an unverified price, with no invoice
 to catch it. New entries come out unrated and score neutrally until you rate
 them.
 
+A provider stanza that sync has to create comes out at `maxPrivacy: "public"`, the lowest tier,
+and says so. Generating `internal` would be sync deciding what a provider may be trusted with —
+the exact judgement it refuses to make on an entry that already exists, made silently on a new one.
+
 Also never written: `maxPrivacy` on an entry that already exists. Comparing the
 catalog against it cannot tell "a human raised this" from "the vendor
 downgraded it", and those need opposite responses. What the catalog supports is
