@@ -25,7 +25,7 @@ const VALID_KINDS = new Set(['openai-compat', 'gemini', 'workers-ai']);
  * the exact "mysteriously empty candidate pool three weeks later" this
  * function exists to prevent.
  */
-const VALID_CAPABILITIES = new Set<string>([
+export const VALID_CAPABILITIES = new Set<string>([
   'text',
   'code',
   'vision',

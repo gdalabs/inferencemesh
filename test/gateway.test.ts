@@ -82,6 +82,22 @@ describe('gateway — request validation', () => {
     }
   });
 
+  test('a mistyped profile is the caller\'s 400, not the server\'s 500', async () => {
+    // `mesh/fastest` instead of `mesh/fast` reached the gateway as an
+    // unrecognised exception and came back 500 — which tells the caller it is
+    // the server's fault, and invites any client that retries 500s to hammer a
+    // request that cannot ever succeed.
+    const res = await gateway()(
+      post(JSON.stringify({ model: 'mesh/fastest', messages: [{ role: 'user', content: 'x' }] }), {
+        authorization: 'Bearer secret',
+      }),
+    );
+    assert.equal(res.status, 400);
+    const body = (await res.json()) as { error: { message: string; code: string } };
+    assert.equal(body.error.code, 'unknown_profile');
+    assert.match(body.error.message, /Known: .*fast/, 'and says what it could have been');
+  });
+
   test('an unknown path is a 404, not a 500', async () => {
     const res = await gateway()(new Request('http://localhost/v1/embeddings', { headers: auth }));
     assert.equal(res.status, 404);

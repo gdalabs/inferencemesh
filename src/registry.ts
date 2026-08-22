@@ -8,6 +8,7 @@
  */
 
 import {
+  MeshError,
   PRIVACY_ORDER,
   type Candidate,
   type Capability,
@@ -147,7 +148,18 @@ export class Registry {
 
   profile(name?: string): MeshProfile {
     const p = this.profiles[name ?? this.defaultProfile];
-    if (!p) throw new Error(`unknown mesh profile '${name}'`);
+    if (!p) {
+      // 400, not a bare Error. Reaching the gateway as an unrecognised
+      // exception made a typed model name — `mesh/fastest` instead of
+      // `mesh/fast` — come back as a 500, which tells the caller it is the
+      // server's fault and invites a client that retries 500s to hammer a
+      // request that can never succeed.
+      throw new MeshError(
+        `unknown mesh profile '${String(name)}'. Known: ${Object.keys(this.profiles).sort().join(', ')}`,
+        400,
+        'unknown_profile',
+      );
+    }
     return p;
   }
 

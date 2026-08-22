@@ -18,7 +18,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { CATALOGS } from './catalogs.js';
-import { registryFrom, validateRegistryFile, type RegistryFile } from './config.js';
+import { VALID_CAPABILITIES, registryFrom, validateRegistryFile, type RegistryFile } from './config.js';
 import { InferenceMesh } from './mesh.js';
 import { Router } from './router.js';
 import {
@@ -34,7 +34,7 @@ import { configFromEnv, loadRegistryFile, main as serveMain } from './server/nod
 import { runSetup } from './setup.js';
 import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
 import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
-import type { Capability, PrivacyLevel } from './types.js';
+import { PRIVACY_ORDER, type Capability, type PrivacyLevel } from './types.js';
 
 function fail(msg: string): never {
   console.error(msg);
@@ -307,12 +307,38 @@ async function cmdRoute(argv: string[]): Promise<number> {
   const arg = (name: string) => argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
   const caps = arg('capabilities');
 
+  // Arguments are checked before routing rather than being passed through.
+  //
+  // Every one of these used to be taken on trust, and each failed in a way that
+  // blamed the registry instead of the typo: `--privacy=internel` rejected every
+  // candidate with "needs internel", `--capabilities=tols` reported every model
+  // as "missing tols", and `--min-context=abc` became NaN and filtered nothing
+  // at all while looking like it had.
+  const privacy = arg('privacy');
+  if (privacy !== undefined && !(privacy in PRIVACY_ORDER)) {
+    fail(`unknown privacy tier '${privacy}'. Known: ${Object.keys(PRIVACY_ORDER).join(', ')}`);
+  }
+  const capabilities = caps ? caps.split(',').map((c) => c.trim()).filter(Boolean) : undefined;
+  for (const c of capabilities ?? []) {
+    if (!VALID_CAPABILITIES.has(c)) {
+      fail(`unknown capability '${c}'. Known: ${[...VALID_CAPABILITIES].join(', ')}`);
+    }
+  }
+  const minContextArg = arg('min-context');
+  let minContext: number | undefined;
+  if (minContextArg !== undefined) {
+    minContext = Number(minContextArg);
+    if (!Number.isInteger(minContext) || minContext <= 0) {
+      fail(`--min-context must be a positive integer (got '${minContextArg}')`);
+    }
+  }
+
   const decision = router.route({
     mesh: profile,
     ...(arg('language') ? { language: arg('language') as string } : {}),
-    ...(arg('privacy') ? { privacy: arg('privacy') as PrivacyLevel } : {}),
-    ...(caps ? { capabilities: caps.split(',') as Capability[] } : {}),
-    ...(arg('min-context') ? { minContext: Number(arg('min-context')) } : {}),
+    ...(privacy ? { privacy: privacy as PrivacyLevel } : {}),
+    ...(capabilities?.length ? { capabilities: capabilities as Capability[] } : {}),
+    ...(minContext !== undefined ? { minContext } : {}),
   });
 
   console.log(`profile: ${decision.profile.name}`);
@@ -480,4 +506,10 @@ async function run(): Promise<void> {
   }
 }
 
-void run();
+// A mistyped argument is a user error, not a crash. Without this, `route
+// nosuchprofile` printed a stack trace with the Node version underneath it
+// while every other bad input got a single usable line.
+void run().catch((err: unknown) => {
+  console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+  process.exitCode = 2;
+});
