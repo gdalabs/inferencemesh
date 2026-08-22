@@ -395,6 +395,26 @@ describe('the setup page is self-contained', () => {
     assert.ok(!/location\.search/.test(SETUP_HTML));
   });
 
+  test('the inline script parses', () => {
+    // The page is one hand-written string. A syntax error in it produces a
+    // blank page that still serves 200 with the right headers, so every test
+    // about the page passes and the page does not work. `new Function` parses
+    // without running, which is exactly the question being asked.
+    const scripts = [...SETUP_HTML.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    assert.ok(scripts.length > 0, 'there is a script to check');
+    for (const code of scripts) assert.doesNotThrow(() => new Function(code as string));
+  });
+
+  test('its tags are balanced', () => {
+    // An orphaned closing tag ends the parent early and silently, which is how
+    // half a page disappears without anything erroring.
+    for (const tag of ['div', 'script', 'style', 'body', 'html', 'form']) {
+      const open = (SETUP_HTML.match(new RegExp(`<${tag}[ >]`, 'g')) ?? []).length;
+      const close = (SETUP_HTML.match(new RegExp(`</${tag}>`, 'g')) ?? []).length;
+      assert.equal(open, close, `<${tag}> opened ${open} times, closed ${close}`);
+    }
+  });
+
   test('no key is ever put in browser storage', () => {
     for (const sink of ['localStorage', 'sessionStorage', 'document.cookie']) {
       assert.ok(!SETUP_HTML.includes(sink), `${sink} must not hold a provider key`);
