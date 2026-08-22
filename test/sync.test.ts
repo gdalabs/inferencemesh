@@ -1,10 +1,10 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
-import { REDPILL } from '../src/catalogs.js';
+import { OPENROUTER, REDPILL } from '../src/catalogs.js';
 import { validateRegistryFile } from '../src/config.js';
 import { DEFAULT_QUALITY_SCORE, qualityScore } from '../src/registry.js';
-import { syncModels, type CatalogModel } from '../src/sync.js';
+import { mergeCapabilities, syncModels, type CatalogModel } from '../src/sync.js';
 import type { ModelEntry } from '../src/types.js';
 
 const TODAY = '2026-08-21';
@@ -295,5 +295,179 @@ describe('registry — unrated models', () => {
     assert.throws(() => validateRegistryFile(file(null)), /within 0\.\.1/);
     assert.throws(() => validateRegistryFile(file('0.8')), /within 0\.\.1/);
     assert.throws(() => validateRegistryFile(file(2)), /within 0\.\.1/);
+  });
+});
+
+describe('sync — capabilities a catalog cannot see', () => {
+  test('a hand-recorded `code` survives a catalog that never mentions code', () => {
+    // Found by running the OpenRouter sync against the shipped registry:
+    // `code,json,text -> text,tools` would have deleted a human's rating of a
+    // model that had not changed, and mesh/coding would stop seeing it.
+    const prior = entry({ capabilities: ['code', 'json', 'text'] });
+    const r = syncModels([prior], [catalogModel({ capabilities: ['text', 'tools'] })], TODAY);
+    const caps = (r.models[0] as ModelEntry).capabilities;
+    assert.ok(caps.includes('code'), 'code is not a thing any catalog declares');
+    assert.ok(caps.includes('tools'), "the catalog's own answer still lands");
+  });
+
+  test('a capability the catalog does own is allowed to go away', () => {
+    // `json` is expressible — a declared parameter list that omits it is an
+    // answer, not a silence — so the catalog gets to remove it.
+    const prior = entry({ capabilities: ['json', 'text'] });
+    const r = syncModels([prior], [catalogModel({ capabilities: ['text'] })], TODAY);
+    assert.deepEqual((r.models[0] as ModelEntry).capabilities, ['text']);
+  });
+
+  test('an undeclared catalog still erases nothing', () => {
+    const prior = entry({ capabilities: ['code', 'json', 'text', 'vision'] });
+    const r = syncModels([prior], [catalogModel({ capabilities: ['text'], undeclared: true })], TODAY);
+    assert.deepEqual((r.models[0] as ModelEntry).capabilities, ['code', 'json', 'text', 'vision']);
+  });
+
+  test('mergeCapabilities keeps only what the catalog cannot describe', () => {
+    assert.deepEqual(mergeCapabilities(['code', 'ocr', 'json'], ['text', 'tools']).sort(), [
+      'code',
+      'ocr',
+      'text',
+      'tools',
+    ]);
+  });
+});
+
+describe('sync — an announced end date', () => {
+  test('a new expiry is recorded and reported', () => {
+    const r = syncModels([entry()], [catalogModel({ expiresAt: '2026-08-24' })], TODAY);
+    assert.equal((r.models[0] as ModelEntry).expiresAt, '2026-08-24');
+    assert.equal(r.changes.find((c) => c.kind === 'expiry')?.detail.includes('2026-08-24'), true);
+  });
+
+  test('withdrawing the announcement is news too, and clears the field', () => {
+    const r = syncModels([entry({ expiresAt: '2026-08-24' })], [catalogModel()], TODAY);
+    assert.equal((r.models[0] as ModelEntry).expiresAt, undefined);
+    assert.match(r.changes.find((c) => c.kind === 'expiry')?.detail ?? '', /no longer announced/);
+  });
+
+  test('an expiry close enough to act on is warned about', () => {
+    const r = syncModels([], [catalogModel({ expiresAt: '2026-08-24' })], TODAY);
+    assert.equal(r.warnings.filter((w) => w.includes('2026-08-24')).length, 1);
+  });
+
+  test("a far-future sentinel is recorded but not announced", () => {
+    // OpenRouter writes 2098-12-31 for "no expiry". Warning about those every
+    // run buries the one that is two days away.
+    const r = syncModels([], [catalogModel({ expiresAt: '2098-12-31' })], TODAY);
+    assert.equal((r.models[0] as ModelEntry).expiresAt, '2098-12-31');
+    assert.deepEqual(r.warnings.filter((w) => w.includes('2098')), []);
+  });
+
+  test('a date that has already passed is worth saying out loud', () => {
+    const r = syncModels([], [catalogModel({ expiresAt: '2026-08-01' })], TODAY);
+    assert.match(r.warnings.find((w) => w.includes('2026-08-01')) ?? '', /has passed/);
+  });
+
+  test('an unparseable date is not guessed at', () => {
+    const r = syncModels([], [catalogModel({ expiresAt: 'soon' })], TODAY);
+    assert.deepEqual(r.warnings.filter((w) => w.includes('soon')), []);
+  });
+});
+
+describe('OPENROUTER catalog reader', () => {
+  const model = (over: Record<string, unknown> = {}) => ({
+    id: 'vendor/thing:free',
+    name: 'Thing',
+    context_length: 128000,
+    architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] },
+    pricing: { prompt: '0', completion: '0' },
+    supported_parameters: ['tools', 'response_format'],
+    ...over,
+  });
+  const raw = (...models: Array<Record<string, unknown>>) => ({ data: models });
+
+  test('a free model is read with the capabilities the catalog declares', () => {
+    const [m] = OPENROUTER.read(raw(model()));
+    assert.equal(m?.id, 'vendor/thing:free');
+    assert.deepEqual(m?.capabilities.sort(), ['json', 'text', 'tools', 'vision']);
+    assert.deepEqual(m?.price, { inPerMTok: 0, outPerMTok: 0 });
+  });
+
+  test('a paid model is skipped', () => {
+    assert.deepEqual(OPENROUTER.read(raw(model({ pricing: { prompt: '0.0000002', completion: '0' } }))), []);
+  });
+
+  test('a zero-per-token model that charges another way is not free', () => {
+    // web_search, image, audio, the cache keys: any of them.
+    const paid = model({ pricing: { prompt: '0', completion: '0', web_search: '0.004' } });
+    assert.deepEqual(OPENROUTER.read(raw(paid)), []);
+  });
+
+  test('a time-of-day override window that charges is not free either', () => {
+    // The one that would actually catch someone: free at the top level, priced
+    // inside a window. utc_start/utc_end are hours and must not be read as money.
+    const tricky = model({
+      pricing: {
+        prompt: '0',
+        completion: '0',
+        overrides: [
+          { utc_start: 0, utc_end: 600, prompt: '0', completion: '0' },
+          { utc_start: 600, utc_end: 2400, prompt: '0.0000004', completion: '0.0000008' },
+        ],
+      },
+    });
+    assert.deepEqual(OPENROUTER.read(raw(tricky)), []);
+  });
+
+  test('an all-zero override window stays free, and the hours are not prices', () => {
+    const free = model({
+      pricing: {
+        prompt: '0',
+        completion: '0',
+        overrides: [{ utc_start: 100, utc_end: 2300, prompt: '0', completion: '0' }],
+      },
+    });
+    assert.equal(OPENROUTER.read(raw(free)).length, 1);
+  });
+
+  test('a model that does not answer in text is not a chat candidate', () => {
+    const audio = model({ architecture: { output_modalities: ['audio'] } });
+    assert.deepEqual(OPENROUTER.read(raw(audio)), []);
+  });
+
+  test('an announced expiry is carried through', () => {
+    const [m] = OPENROUTER.read(raw(model({ expiration_date: '2026-08-24' })));
+    assert.equal(m?.expiresAt, '2026-08-24');
+  });
+
+  test('no privacy evidence is invented — the upstream is chosen per request', () => {
+    const [m] = OPENROUTER.read(raw(model()));
+    assert.equal(m?.maxPrivacy, undefined);
+  });
+
+  test('an empty parameter list is not read as "no tools"', () => {
+    const [m] = OPENROUTER.read(raw(model({ supported_parameters: [] })));
+    assert.deepEqual(m?.capabilities.sort(), ['text', 'vision'], 'modalities still count');
+    assert.ok(!m?.capabilities.includes('tools'), 'and nothing is invented');
+  });
+
+  test('a catalog entry that declares nothing at all is undeclared', () => {
+    // Both halves have to be silent. A modality list is a declaration, and
+    // calling that "undeclared" makes sync warn about a silence that did not
+    // happen — while a truly empty entry must still not be read as "no tools".
+    const [m] = OPENROUTER.read(
+      raw(model({ supported_parameters: [], architecture: { output_modalities: ['text'] } })),
+    );
+    assert.equal(m?.undeclared, true);
+    assert.deepEqual(m?.capabilities, ['text']);
+  });
+
+  test('an unreadable price throws rather than defaulting to free', () => {
+    assert.throws(
+      () => OPENROUTER.read(raw(model({ pricing: { prompt: 'free', completion: '0' } }))),
+      /unreadable prompt price/,
+    );
+    assert.throws(
+      () => OPENROUTER.read(raw(model({ pricing: { prompt: '0', completion: '0', overrides: 'nope' } }))),
+      /unreadable overrides/,
+    );
+    assert.throws(() => OPENROUTER.read({ data: 'nope' }), /no `data` array/);
   });
 });

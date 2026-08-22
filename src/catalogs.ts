@@ -15,6 +15,13 @@ export interface CatalogSource {
   url: string;
   /** Env var holding the key, when the catalog needs one. */
   apiKeyEnv?: string;
+  /**
+   * Env var the *provider* needs to serve a request, when that is not the same
+   * as the one the catalog needs. OpenRouter publishes its model list to
+   * anybody and asks for a key only at inference time, so a generated provider
+   * stanza that copied `apiKeyEnv` would come out with no credential at all.
+   */
+  providerApiKeyEnv?: string;
   /** Human-readable note about what this catalog does and does not carry. */
   caveat: string;
   read(raw: unknown): CatalogModel[];
@@ -139,6 +146,149 @@ export const REDPILL: CatalogSource = {
   },
 };
 
+
+interface OpenRouterModel {
+  id?: string;
+  name?: string;
+  context_length?: number;
+  expiration_date?: string | null;
+  architecture?: { input_modalities?: string[]; output_modalities?: string[] };
+  pricing?: Record<string, unknown>;
+  supported_parameters?: string[];
+}
+
+/**
+ * Is every price in this object zero?
+ *
+ * `pricing` is mostly numeric strings, but one key is not: `overrides` holds a
+ * list of time-of-day windows, each with its own `prompt` and `completion` and
+ * a `utc_start`/`utc_end` that are hours, not money. **A model can be free at
+ * the top level and charge inside a window** — 60 models carried overrides on
+ * 2026-08-22, none of them free ones, which is exactly the state in which a
+ * naive check looks correct forever and then quietly bills someone.
+ *
+ * Anything unreadable throws. An unparseable price is not evidence of zero,
+ * and this decides what goes into a file whose entire promise is that its
+ * prices are free.
+ */
+function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
+  let free = true;
+  for (const [field, value] of Object.entries(pricing)) {
+    if (field === 'overrides') {
+      if (!Array.isArray(value)) throw new Error(`openrouter: ${id} has an unreadable overrides`);
+      for (const window of value as Array<Record<string, unknown>>) {
+        for (const [k, v] of Object.entries(window)) {
+          // Hours, not money.
+          if (k === 'utc_start' || k === 'utc_end') continue;
+          const n = num(v);
+          if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${k} in overrides`);
+          if (n !== 0) free = false;
+        }
+      }
+      continue;
+    }
+    const n = num(value);
+    if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${field} price`);
+    if (n !== 0) free = false;
+  }
+  return free;
+}
+
+/**
+ * OpenRouter — https://openrouter.ai/api/v1/models
+ *
+ * **Keyless.** The list is public, which makes this the one catalog that can
+ * be refreshed without spending anybody's credit, and it replaces the `curl |
+ * jq` line that `providers.default.json` used to carry in a comment.
+ *
+ * ## Free tier only, on purpose
+ *
+ * 421 models on 2026-08-22, of which 22 were priced at zero. The registry
+ * provider this fills is `openrouter-free` — the free tier is its whole
+ * identity — and the shipped registry takes no paid entries, so reading the
+ * paid 399 would generate a file that cannot be used where it is aimed.
+ *
+ * ## What counts as free
+ *
+ * Every published price must be zero, not just `prompt` and `completion`. The
+ * pricing object also carries `web_search`, `image`, `audio`, the cache keys
+ * and `internal_reasoning`, and — the one that would actually catch someone —
+ * `overrides`, a list of time-of-day windows with prices of their own. A model
+ * quoting zero per token while charging inside a window is not free, it is
+ * free-looking. No zero-priced model carried overrides on 2026-08-22; the
+ * check is here because the day one does is the day nobody re-reads this.
+ *
+ * ## No privacy evidence
+ *
+ * Deliberately absent. OpenRouter is a relay whose upstream is chosen per
+ * request, so its catalog says nothing about who ends up holding the text —
+ * and where the catalog is silent, `maxPrivacy` stays whatever a human put in
+ * the file. RedPill has `is_tee` to reason about; this has nothing.
+ */
+export const OPENROUTER: CatalogSource = {
+  id: 'openrouter-free',
+  url: 'https://openrouter.ai/api/v1/models',
+  providerApiKeyEnv: 'OPENROUTER_API_KEY',
+  caveat:
+    'Keyless and free-tier only: models with any non-zero published price are skipped. ' +
+    'The catalog carries no privacy evidence, so maxPrivacy is left to the file. ' +
+    'expiration_date is read where present — it is the only advance notice a free tier gives.',
+  read(raw: unknown): CatalogModel[] {
+    const data = (raw as { data?: unknown })?.data;
+    if (!Array.isArray(data)) throw new Error('openrouter: response has no `data` array');
+
+    const out: CatalogModel[] = [];
+    for (const entry of data as OpenRouterModel[]) {
+      if (!entry.id) continue;
+
+      const pricing = entry.pricing;
+      if (!pricing || typeof pricing !== 'object') {
+        throw new Error(`openrouter: ${entry.id} has no pricing object`);
+      }
+      if (!everyPriceZero(pricing, entry.id)) continue;
+
+      // A model that does not answer in text cannot serve a chat request.
+      // The catalog lists image and audio generators at zero alongside the
+      // language models, and routing to one would fail every request it won.
+      const outputs = entry.architecture?.output_modalities;
+      if (Array.isArray(outputs) && outputs.length > 0 && !outputs.includes('text')) continue;
+
+      const ctx = num(entry.context_length);
+      if (ctx === null || ctx <= 0) {
+        throw new Error(`openrouter: ${entry.id} has an unreadable context_length`);
+      }
+
+      const params = new Set(entry.supported_parameters ?? []);
+      const capabilities: Capability[] = ['text'];
+      if (entry.architecture?.input_modalities?.includes('image')) capabilities.push('vision');
+      if (params.has('tools')) capabilities.push('tools');
+      if (params.has('response_format') || params.has('structured_outputs')) {
+        capabilities.push('json');
+      }
+      // `code` is never derived here either — no field describes it.
+
+      out.push({
+        id: entry.id,
+        ...(entry.name ? { label: entry.name } : {}),
+        capabilities,
+        // Declaring nothing at all is different from declaring a short list.
+        // The modality list counts: a catalog that names the input modalities
+        // and no parameters has still told us something, and marking that
+        // "undeclared" would make sync warn about a silence that did not happen.
+        undeclared: params.size === 0 && !entry.architecture?.input_modalities?.length,
+        contextWindow: Math.floor(ctx),
+        // Zero, verified by the loop above rather than assumed from the id.
+        // A ':free' suffix is a naming convention, not a price.
+        price: { inPerMTok: 0, outPerMTok: 0 },
+        ...(entry.expiration_date ? { expiresAt: entry.expiration_date } : {}),
+        note: 'free tier on OpenRouter; upstream operator chosen per request',
+      });
+    }
+    return out;
+  },
+};
+
 export const CATALOGS: Record<string, CatalogSource> = {
   redpill: REDPILL,
+  openrouter: OPENROUTER,
 };

@@ -237,8 +237,20 @@ hand-written price is a claim about a day that has passed. `sync` reads a
 provider's own catalog and writes the parts a machine can know:
 
 ```sh
-inferencemesh sync --provider=redpill --out=providers.local.json --dry-run
+inferencemesh sync --provider=redpill    --out=providers.local.json --dry-run
+inferencemesh sync --provider=openrouter --out=providers.local.json --dry-run
 ```
+
+OpenRouter's catalog is **keyless** — the model list is public, so this one can
+be refreshed without spending anybody's credit. It is read free-tier only: 421
+models on 2026-08-22, of which 22 were priced at zero, and the registry
+provider it fills is the free tier by definition.
+
+"Free" there means every published price is zero, not just per-token. The
+pricing object also carries `web_search`, `image`, the cache keys and —
+the one that would actually catch someone — `overrides`, a list of
+time-of-day windows with prices of their own. A model quoting zero per token
+and charging between 06:00 and 24:00 UTC is not free, it is free-looking.
 
 Refreshed every run: existence, context window, capabilities, price — stamped
 with `priceVerifiedAt` for the day the catalog was read, because the catalog
@@ -263,6 +275,20 @@ old sign-off stops meaning anything.
 A model that disappears from a catalog is disabled, not deleted: deleting would
 throw away your rating and make the disappearance invisible on the next diff.
 
+### The one warning that arrives early
+
+Everything else about rot is discovered afterwards, by a user waiting on a 404.
+`expiration_date` is the exception: a provider announcing, in machine-readable
+form, that a free tier ends on a date. Sync records it as `expiresAt` and warns
+when it is within 60 days — three of the nvidia `:free` ids were two days out
+when this was written.
+
+Nothing routes on it. A date is a statement of intent, not an observation, and
+a model that outlives its own announced expiry should keep serving rather than
+be dropped by arithmetic in a JSON file. Far-future sentinels (OpenRouter
+writes `2098-12-31` for "no expiry") are recorded and not announced, because a
+warning that fires every run buries the one that matters.
+
 ### What a catalog cannot tell you
 
 Absent is not denied. RedPill lists 14 models with no declared parameters at
@@ -270,6 +296,14 @@ all, six of them TEE-hosted, and at least one of those answers tool calls
 perfectly well. Sync records only `text` for those and warns; it never writes
 "no tools" on a claim nobody made, and it never overwrites capabilities you
 recorded after probing.
+
+That last part is narrower than it sounds, and it is worth being precise about:
+a catalog owns the capabilities it can actually express — `text`, `vision`,
+`tools`, `json` — and nothing else. **No catalog describes `code`.** A sync
+that overwrote the capability list wholesale would delete a hand-recorded
+`code` from a model that had not changed in any way, and `mesh/coding` would
+stop seeing it. The catalog refreshes what it observed; it does not get to
+erase what it cannot see.
 
 `is_tee: true` earns `internal`, never `confidential`. It is a vendor asserting
 something about itself in a JSON field, nothing has checked an attestation, and

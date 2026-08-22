@@ -32,11 +32,18 @@
 
 ## Next
 
-- **More catalogs for `sync`.** The generator exists and RedPill is wired up
-  (68 models, prices and privacy evidence read from the provider itself). The
-  other five public catalogs — OpenRouter, NVIDIA, Chutes, ModelScope, OVHcloud
-  — need a reader each, plus a policy for whether a given catalog is free-tier
-  only, since `providers.default.json` may not take paid entries.
+- **More catalogs for `sync`.** RedPill (68 models, with privacy evidence) and
+  OpenRouter (keyless, free-tier only, 22 of 421 models) are wired up. NVIDIA,
+  Chutes, ModelScope and OVHcloud need a reader each. The free-tier policy is
+  now per catalog: OpenRouter is read free-only because the registry provider
+  it fills *is* the free tier, and `cmdSync` still refuses to write any paid
+  entry into `providers.default.json` whatever the catalog says.
+- **Probe before adopting what OpenRouter's catalog offers.** The reader finds
+  18 free models that are not in the shipped registry (thinkingmachines,
+  poolside, cohere, z-ai, liquid, more nvidia). None may be added until
+  `probe` has actually reached them — on 2026-08-16 both `:free` ids in the
+  first draft had already left the free tier. That run needs a key, so it is a
+  deliberate step, not part of a sync.
 - **Rate what sync cannot.** A generated entry is unrated and scores neutrally.
   That is honest but it makes `best` meaningless across a large generated
   registry. Ratings have to come from somewhere measurable — a held-out eval, or

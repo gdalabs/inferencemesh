@@ -46,6 +46,11 @@ export interface CatalogModel {
   price: Price;
   /** Set only when the catalog carries evidence about it. */
   maxPrivacy?: PrivacyLevel;
+  /**
+   * YYYY-MM-DD the catalog says the model goes away. Present on a minority of
+   * entries and only on the catalogs that publish it at all.
+   */
+  expiresAt?: string;
   /** One line for a human reading the generated file. */
   note?: string;
 }
@@ -57,7 +62,8 @@ export type SyncChangeKind =
   | 'repriced'
   | 'context'
   | 'capabilities'
-  | 'privacy-evidence';
+  | 'privacy-evidence'
+  | 'expiry';
 
 export interface SyncChange {
   kind: SyncChangeKind;
@@ -76,6 +82,49 @@ export interface SyncResult {
    * fail on these rather than report them.
    */
   hazards: string[];
+}
+
+/** How far ahead an announced end date is still worth saying out loud. */
+export const EXPIRY_WARNING_DAYS = 60;
+
+/**
+ * Whole days from `from` to `to`, both YYYY-MM-DD. Null if either is not a
+ * date this understands — a catalog is free to put anything in that field, and
+ * guessing at it would be worse than staying quiet.
+ */
+function daysBetween(from: string, to: string): number | null {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/**
+ * Capabilities a catalog is able to speak about at all.
+ *
+ * A catalog lists input modalities and accepted parameters, so it can say
+ * whether a model takes images or accepts a `tools` array. Nothing in a
+ * catalog describes whether a model is any good at code, or whether it does
+ * OCR, or speech — those get into the file by a human probing and writing them
+ * down.
+ *
+ * The distinction matters at merge time. Overwriting the capability list
+ * wholesale means a catalog that declares `tools` and `text` silently deletes
+ * a hand-recorded `code`, and `mesh/coding` stops seeing a model that has not
+ * changed in any way. Same rule as `quality` and `maxPrivacy`: the machine
+ * refreshes what it observed, and does not get to erase what it cannot see.
+ */
+export const CATALOG_OWNED_CAPABILITIES: readonly Capability[] = ['text', 'vision', 'tools', 'json'];
+
+/**
+ * Merge a catalog's capability list into the one already on disk: the
+ * catalog's answer for the fields it owns, the file's answer for the rest.
+ */
+export function mergeCapabilities(prior: Capability[], found: Capability[]): Capability[] {
+  const owned = new Set(CATALOG_OWNED_CAPABILITIES);
+  const kept = prior.filter((c) => !owned.has(c));
+  const merged = new Set<Capability>([...found, ...kept]);
+  return [...merged];
 }
 
 function samePrice(a: Price, b: Price): boolean {
@@ -131,6 +180,7 @@ export function syncModels(
           ? { maxPrivacy: found.maxPrivacy, evidencePrivacy: found.maxPrivacy }
           : {}),
         ...(found.note ? { note: found.note } : {}),
+        ...(found.expiresAt ? { expiresAt: found.expiresAt } : {}),
         // `quality` and `languages` are deliberately absent. See the file header.
       };
       models.push(entry);
@@ -170,11 +220,12 @@ export function syncModels(
     // A catalog that says nothing must not erase what a human recorded after
     // probing. Only an actual declaration is allowed to overwrite.
     if (!found.undeclared) {
+      const merged = mergeCapabilities(prior.capabilities, found.capabilities);
       const before = [...prior.capabilities].sort().join(',');
-      const after = [...found.capabilities].sort().join(',');
+      const after = [...merged].sort().join(',');
       if (before !== after) {
         changes.push({ kind: 'capabilities', id: found.id, detail: `${before} -> ${after}` });
-        next.capabilities = found.capabilities;
+        next.capabilities = merged;
       }
     }
 
@@ -231,7 +282,40 @@ export function syncModels(
     if (found.note) next.note = found.note;
     else delete next.note;
 
+    // An announced end date is machine-owned like the price, so it is replaced
+    // rather than preserved — including being cleared when the catalog stops
+    // saying it, which is the provider withdrawing the announcement.
+    if (prior.expiresAt !== found.expiresAt) {
+      changes.push({
+        kind: 'expiry',
+        id: found.id,
+        detail: found.expiresAt
+          ? prior.expiresAt
+            ? `${prior.expiresAt} -> ${found.expiresAt}`
+            : `the catalog now says this ends ${found.expiresAt}`
+          : `no longer announced to end (was ${prior.expiresAt as string})`,
+      });
+    }
+    if (found.expiresAt) next.expiresAt = found.expiresAt;
+    else delete next.expiresAt;
+
     models.push(next);
+  }
+
+  // Warn only about an end date near enough to act on. Catalogs use a
+  // far-future sentinel for "no expiry" — OpenRouter writes 2098-12-31 — and
+  // reporting those every run would bury the ones that matter. The date is
+  // still recorded either way; this only decides what gets said out loud.
+  for (const m of models) {
+    if (!m.expiresAt || m.disabled) continue;
+    const days = daysBetween(today, m.expiresAt);
+    if (days === null || days > EXPIRY_WARNING_DAYS) continue;
+    warnings.push(
+      days < 0
+        ? `${m.id}: the catalog said this ends ${m.expiresAt}, which has passed — still listed, so probe it.`
+        : `${m.id}: the catalog says this ends ${m.expiresAt} (${days} day(s) away). ` +
+            `This is the only advance notice a free tier gives; everything else is found out by a 404.`,
+    );
   }
 
   for (const old of existing) {

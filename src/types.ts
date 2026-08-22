@@ -130,6 +130,21 @@ export interface ModelEntry {
    * question comes up.
    */
   note?: string;
+  /**
+   * Date (YYYY-MM-DD) the provider's own catalog says this model goes away.
+   *
+   * Machine-owned, refreshed on every sync. It is the only *advance* notice a
+   * free tier ever gives: everything else about rot is discovered afterwards,
+   * by a user waiting on a 404. OpenRouter publishes it for a handful of
+   * models at a time — three of the nvidia `:free` ids carried 2026-08-24 when
+   * this was written, two days out.
+   *
+   * Nothing routes on it, deliberately. A date is a statement of intent, not
+   * an observation, and a model that outlives its own announced expiry should
+   * keep serving rather than be dropped by this file's arithmetic. `probe`
+   * remains the thing that decides whether a model works.
+   */
+  expiresAt?: string;
   /** Excluded from routing while true. Keeps the entry around for diffing. */
   disabled?: boolean;
 }

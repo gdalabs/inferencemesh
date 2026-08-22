@@ -342,7 +342,7 @@ async function cmdSync(argv: string[]): Promise<number> {
       id: catalog.id,
       kind: 'openai-compat',
       baseUrl: catalog.url.replace(/\/models$/, ''),
-      apiKeyEnv: catalog.apiKeyEnv ?? '',
+      apiKeyEnv: catalog.providerApiKeyEnv ?? catalog.apiKeyEnv ?? '',
       maxPrivacy: 'internal',
       models: [],
     };

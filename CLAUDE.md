@@ -78,6 +78,15 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   catalog's answer and a human's decision are different facts; keep the
   catalog's in `evidencePrivacy` and diff it against its own previous value.
   Overwriting erases the decision instead of surfacing the conflict.
+- 🔴 **A catalog may not erase a capability it cannot express.** `code` is the
+  one that bites: no catalog describes it, so a wholesale overwrite deletes a
+  hand-recorded `code` from an unchanged model and `mesh/coding` stops seeing
+  it. `CATALOG_OWNED_CAPABILITIES` is the list a catalog gets to speak about.
+- 🔴 **`expiresAt` is never routed on.** An announced end date is a statement of
+  intent, not an observation; a model that outlives its own expiry should keep
+  serving. `probe` decides what works. Far-future sentinels (`2098-12-31`) are
+  recorded and not warned about — a warning that fires every run buries the one
+  that is two days away.
 - 🔴 **Absent is not denied.** A catalog that declares no capabilities has said
   nothing, not "no tools". Record `text`, warn, and leave probed values alone.
 - 🔴 **`probe --language` must never write a `languages` score.** It measures
