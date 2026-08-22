@@ -219,7 +219,18 @@ probably-down provider still beats no provider), quota is checked at attempt tim
 remainder becomes the fallback chain.
 
 `inferencemesh route best --language=ja` prints the whole decision, including why each rejected
-candidate was rejected, without touching the network.
+candidate was rejected, without touching the network. The same filters a request can carry are
+flags here, so a routing question can be answered before anything is wired up:
+
+```sh
+inferencemesh route best --language=ja
+inferencemesh route free --capabilities=vision,tools   # hard requirements, not preferences
+inferencemesh route best --privacy=confidential        # the floor a candidate must serve
+inferencemesh route free --min-context=200000
+```
+
+A value that is not a real capability, privacy tier or number is refused by name rather than
+quietly filtering everything out — a typo should read as a typo, not as an empty registry.
 
 ### What is *not* retried
 

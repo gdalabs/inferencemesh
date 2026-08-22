@@ -122,3 +122,20 @@ describe('the Worker example', () => {
     );
   });
 });
+
+describe('the CLI flags are documented', () => {
+  test('every flag the CLI reads appears in the README', async () => {
+    // Same silent drift as the settings: --capabilities, --privacy and
+    // --min-context existed, worked, and were written down nowhere.
+    const [cli, readme] = await Promise.all([
+      readFile(resolve(SRC, 'cli.ts'), 'utf8'),
+      readFile(resolve(SRC, '../README.md'), 'utf8'),
+    ]);
+    const flags = new Set<string>();
+    for (const m of cli.matchAll(/arg\('([a-z-]+)'\)/g)) flags.add(`--${m[1] as string}`);
+    for (const m of cli.matchAll(/startsWith\('(--[a-z-]+)/g)) flags.add(m[1] as string);
+    for (const m of cli.matchAll(/includes\('(--[a-z-]+)'\)/g)) flags.add(m[1] as string);
+    const missing = [...flags].filter((f) => !readme.includes(f)).sort();
+    assert.deepEqual(missing, [], `undocumented flags: ${missing.join(', ')}`);
+  });
+});
