@@ -39,6 +39,7 @@ const MSG = {
     getKey: 'Get a key here',
     envVar: 'Then paste it below. It is stored in',
     prompt: (id: string) => `  ${id} key (blank to skip): `,
+    promptAccount: (id: string) => `  ${id} (also required): `,
     checking: '  checking...',
     ok: (ms: number) => `  OK — answered in ${ms}ms`,
     bad: (why: string) => `  that key did not work: ${why}`,
@@ -64,6 +65,7 @@ const MSG = {
     getKey: 'ここで鍵を取れます',
     envVar: '取った鍵を下に貼ってください。保存先は',
     prompt: (id: string) => `  ${id} の鍵（何も入れずEnterで飛ばせます）: `,
+    promptAccount: (id: string) => `  ${id}（こちらも必要です）: `,
     checking: '  確認しています...',
     ok: (ms: number) => `  OK — ${ms}ms で応答しました`,
     bad: (why: string) => `  この鍵では動きませんでした: ${why}`,
@@ -240,12 +242,34 @@ export async function runSetup(
         }
         const answer = raw.trim();
         if (!answer) break;
+
+        // Some providers need a second value — Cloudflare puts the account id
+        // in the URL path. The browser setup page has always had a field for
+        // it; this one never asked, so a Cloudflare key pasted into the
+        // terminal wizard could only ever fail, with a message naming a
+        // variable the wizard offered no way to set.
+        let account: string | undefined;
+        if (p.accountIdEnv && !process.env[p.accountIdEnv] && !collected[p.accountIdEnv]) {
+          const rawAccount = await rl.ask(t.promptAccount(p.accountIdEnv));
+          if (rawAccount === null) {
+            eof = true;
+            break;
+          }
+          account = rawAccount.trim();
+          if (!account) break;
+        }
+
         say(t.checking);
-        const env: Record<string, string | undefined> = { ...process.env, ...collected };
+        const env: Record<string, string | undefined> = {
+          ...process.env,
+          ...collected,
+          ...(account && p.accountIdEnv ? { [p.accountIdEnv]: account } : {}),
+        };
         const res = await verifyKey(p, answer, env);
         if (res.ok) {
           say(t.ok(res.ms));
           collected[p.apiKeyEnv] = answer;
+          if (account && p.accountIdEnv) collected[p.accountIdEnv] = account;
           break;
         }
         say(t.bad(res.why));

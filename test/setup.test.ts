@@ -170,6 +170,45 @@ describe('runSetup over a pipe', () => {
     assert.match(await readFile(r.envPath, 'utf8'), /^OLD=1$/m);
   });
 
+  test('a provider needing an account id is asked for both', async () => {
+    // Cloudflare puts the account id in the URL path. The browser page has
+    // always had a field for it; the terminal wizard never asked, so a key
+    // pasted here could only fail — naming a variable it gave no way to set.
+    const dir = await mkdtemp(join(tmpdir(), 'im-setup-'));
+    const envPath = join(dir, 'keys');
+    const out = sink();
+    const seen: Array<Record<string, string | undefined>> = [];
+    await runSetup(
+      { providers: [provider({ accountIdEnv: 'TESTCO_ACCOUNT_FOR_SETUP_TEST' })] },
+      envPath,
+      {
+        input: Readable.from(['sk-good\n', 'acct-123\n']),
+        output: out.stream,
+        async verifyKey(_p, _key, env) {
+          seen.push(env);
+          return { ok: true, ms: 1 };
+        },
+      },
+    );
+    assert.equal(seen[0]?.['TESTCO_ACCOUNT_FOR_SETUP_TEST'], 'acct-123', 'verified with both');
+    const written = await readFile(envPath, 'utf8');
+    assert.match(written, /^TESTCO_ACCOUNT_FOR_SETUP_TEST=acct-123$/m, 'and both are saved');
+    assert.match(written, /^TESTCO_KEY_FOR_SETUP_TEST=sk-good$/m);
+  });
+
+  test('an account id already in the environment is not asked for again', async () => {
+    process.env['TESTCO_ACCOUNT_FOR_SETUP_TEST'] = 'from-env';
+    try {
+      const r = await drive(
+        { providers: [provider({ accountIdEnv: 'TESTCO_ACCOUNT_FOR_SETUP_TEST' })] },
+        ['sk-good'],
+      );
+      assert.deepEqual(r.asked, ['sk-good'], 'the second answer was never consumed');
+    } finally {
+      delete process.env['TESTCO_ACCOUNT_FOR_SETUP_TEST'];
+    }
+  });
+
   test('a registry with no providers is not a crash', async () => {
     // The embedded registry is loaded by the caller now; setup must cope with
     // whatever it gets rather than assuming a shape.
