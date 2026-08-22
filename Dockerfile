@@ -38,7 +38,8 @@ ENV NODE_ENV=production \
     INFERENCEMESH_HOST=0.0.0.0 \
     INFERENCEMESH_PORT=8910 \
     INFERENCEMESH_LEDGER=/data/ledger.json \
-    INFERENCEMESH_DISCOVERY_STATE=/data/discovery.json
+    INFERENCEMESH_DISCOVERY_STATE=/data/discovery.json \
+    INFERENCEMESH_KEYS=/data/keys.env
 
 # INFERENCEMESH_HOST is 0.0.0.0 *inside the container only*: the container's
 # own network namespace is the boundary. Publish it as `127.0.0.1:8910:8910`
@@ -53,6 +54,11 @@ COPY scripts ./scripts
 # so the runtime image contains the compiled output and nothing else. There is
 # no dependency tree in the image to audit, patch, or be surprised by.
 
+# Keys added through the setup page land in /data, which is the volume. They
+# used to default to /app/.inferencemesh/keys.env — and the compose file mounts
+# the image read-only, so the one onboarding path the README points at failed
+# at the write, after verifying the key against the provider.
+
 # Non-root. `node` (uid 1000) ships with the base image.
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
@@ -62,8 +68,17 @@ EXPOSE 8910
 # A healthcheck that only proves the process is listening would go green while
 # every provider was misconfigured. This one asks the gateway whether it has
 # any usable candidate at all.
+#
+# It has to authenticate. /healthz is behind the bearer token unless
+# INFERENCEMESH_PUBLIC_HEALTH=1, so without the header this asked an
+# unauthorised question, read `candidates` off a 401 body, and reported the
+# container unhealthy forever — measured: failing streak 3, status unhealthy,
+# on a gateway that was answering perfectly well. Sending the token keeps
+# /healthz closed to everything else. INFERENCEMESH_TOKENS may be a list; the
+# first one is as good as any.
 HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.INFERENCEMESH_PORT||8910)+'/healthz')\
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.INFERENCEMESH_PORT||8910)+'/healthz',\
+{headers:{authorization:'Bearer '+(process.env.INFERENCEMESH_TOKENS||'').split(',')[0].trim()}})\
 .then(r=>r.json()).then(d=>process.exit(d.candidates>0?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "dist/src/server/node.js"]
