@@ -22,10 +22,20 @@
   see *Rate what sync cannot* below — and until then the honest shape is
   evidence stored beside the human score, the way `evidencePrivacy` is, rather
   than merged into it.
-- **A judge for more languages.** Script-based judging covers ja/zh/ko/ru/ar/hi/th
-  outright. Latin-script languages are told apart by function words, which works
-  for the eleven in the table and returns `unjudged` for every other — honest,
-  but it means a Swahili or Tagalog claim cannot be contradicted at all.
+- **A judge for languages that share a script.** Script judging now covers
+  ja/zh/ko/ru/ar/hi/th/he/el/hy/ka/bn/ta, and Latin-script languages are told
+  apart by function words for the eleven in that table. Two gaps remain, and
+  they are different in kind. A language with neither (Swahili, Tagalog) comes
+  back `unjudged`, which is honest — nothing is claimed. But a language that
+  *shares* a script with the one that owns the tag is wrong rather than silent:
+  a Ukrainian reply to a `ru` request is scored as a match, and the same holds
+  for Marathi under `hi` and Persian under `ar`. Distinguishing them needs the
+  letters unique to each (і/ї/є/ґ for Ukrainian, پ/چ/ژ/گ for Persian), which is
+  cheap to add and worth doing before anyone measures a Cyrillic claim.
+- **Native probe prompts for the newer scripts.** he/el/hy/ka/bn/ta can be
+  judged but are asked in English, which measures instruction-following rather
+  than the language. A prompt written in a language nobody here can check is an
+  instrument nobody can verify, so these need a speaker, not a guess.
 - **Prebuilt binaries.** `npm run build:binary` produces a working executable,
   but one platform at a time. CI should build macOS arm64/x64, Linux x64/arm64
   and Windows, publish them to Releases, and back an `install.sh`.

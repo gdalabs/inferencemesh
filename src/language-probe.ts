@@ -126,7 +126,21 @@ function baseTag(tag: LanguageTag): string {
 }
 
 /** Scripts we can count. Latin is a bucket, not a language. */
-type Script = 'kana' | 'han' | 'hangul' | 'cyrillic' | 'arabic' | 'devanagari' | 'thai' | 'latin';
+type Script =
+  | 'kana'
+  | 'han'
+  | 'hangul'
+  | 'cyrillic'
+  | 'arabic'
+  | 'devanagari'
+  | 'thai'
+  | 'hebrew'
+  | 'greek'
+  | 'armenian'
+  | 'georgian'
+  | 'bengali'
+  | 'tamil'
+  | 'latin';
 
 const SCRIPT_RANGES: Array<[Script, RegExp]> = [
   ['kana', /[぀-ヿㇰ-ㇿ]/],
@@ -136,30 +150,50 @@ const SCRIPT_RANGES: Array<[Script, RegExp]> = [
   ['arabic', /[؀-ۿݐ-ݿ]/],
   ['devanagari', /[ऀ-ॿ]/],
   ['thai', /[฀-๿]/],
+  ['hebrew', /[\u0590-\u05ff\ufb1d-\ufb4f]/],
+  // Greek and Coptic plus Greek Extended. Excludes the maths symbols that
+  // share letterforms, which appear in English text about algebra.
+  ['greek', /[\u0370-\u03ff\u1f00-\u1fff]/],
+  ['armenian', /[\u0530-\u058f]/],
+  ['georgian', /[\u10a0-\u10ff\u1c90-\u1cbf]/],
+  ['bengali', /[\u0980-\u09ff]/],
+  ['tamil', /[\u0b80-\u0bff]/],
   ['latin', /[A-Za-z\u00c0-\u024f\u1e00-\u1eff]/],
 ];
 
 /** Language tag reported when a script is unambiguous on its own. */
 const SCRIPT_LANGUAGE: Partial<Record<Script, LanguageTag>> = {
   hangul: 'ko',
+  // Each of these is the language this script is most often asked for, not the
+  // only one written in it. Cyrillic also writes Ukrainian, Bulgarian and
+  // Serbian; Devanagari also writes Marathi and Nepali; Arabic script also
+  // writes Persian and Urdu. A request for one of *those* tags finds no judge
+  // here and comes back `unjudged`, which is correct — what is not correct
+  // would be answering 'ru' to a reply that is Ukrainian, and that limitation
+  // is real: this cannot tell them apart.
   cyrillic: 'ru',
   arabic: 'ar',
   devanagari: 'hi',
   thai: 'th',
+  hebrew: 'he',
+  greek: 'el',
+  armenian: 'hy',
+  georgian: 'ka',
+  bengali: 'bn',
+  tamil: 'ta',
 };
 
+/**
+ * Count the language-bearing characters by script.
+ *
+ * The tally is built from `SCRIPT_RANGES` rather than written out, so adding a
+ * script cannot leave a counter behind — a hand-kept parallel list is exactly
+ * the thing that goes quietly out of sync and makes a detector return zero for
+ * a script it claims to support.
+ */
 function scriptCounts(text: string): Record<Script, number> & { total: number } {
-  const counts = {
-    kana: 0,
-    han: 0,
-    hangul: 0,
-    cyrillic: 0,
-    arabic: 0,
-    devanagari: 0,
-    thai: 0,
-    latin: 0,
-    total: 0,
-  };
+  const counts = { total: 0 } as Record<Script, number> & { total: number };
+  for (const [script] of SCRIPT_RANGES) counts[script] = 0;
   for (const ch of text) {
     for (const [script, re] of SCRIPT_RANGES) {
       if (re.test(ch)) {

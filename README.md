@@ -339,6 +339,14 @@ inferencemesh probe --language=ja          # ask in Japanese, grade what comes b
 inferencemesh probe --language=ja --json
 ```
 
+Judging covers the scripts that identify a language on their own — Japanese
+(kana, so Chinese is not accepted as Japanese), Chinese, Korean, Russian,
+Arabic, Hindi, Thai, Hebrew, Greek, Armenian, Georgian, Bengali, Tamil — plus
+eleven Latin-script languages told apart by function words. Anything else is
+reported `unjudged` rather than failed. One real limitation: a language sharing
+a script with the one that owns the tag (Ukrainian under `ru`, Persian under
+`ar`) is scored as a match.
+
 Each candidate is asked two questions **written in that language** — an English "reply in Japanese"
 instruction would measure instruction-following instead — and the reply is graded by script and
 function words. The result is printed next to what the registry claims, and only one direction is a

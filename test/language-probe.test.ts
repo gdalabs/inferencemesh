@@ -255,3 +255,48 @@ describe('what the registry actually claims about a language', () => {
     assert.equal(compareToRegistry(evidence, 0), 'understated');
   });
 });
+
+describe('scripts that are their own answer', () => {
+  // One sentence each, in the script the tag names. These languages have no
+  // native probe prompt — writing one in a language nobody here can check
+  // would make the instrument itself unverifiable — but a reply can still be
+  // judged, which is what a user asking for `--language=el` needs.
+  const cases: Array<[string, string, string]> = [
+    ['he', 'השמיים מכוסים בעננים אפורים והרוח נעשית לחה לפני הגשם.', 'Hebrew'],
+    ['el', 'Ο ουρανός είναι σκεπασμένος με γκρίζα σύννεφα πριν από τη βροχή.', 'Greek'],
+    ['hy', 'Երկինքը ծածկված է մոխրագույն ամպերով անձրևից առաջ։', 'Armenian'],
+    ['ka', 'ცა დაფარულია ნაცრისფერი ღრუბლებით წვიმის წინ.', 'Georgian'],
+    ['bn', 'বৃষ্টির আগে আকাশ ধূসর মেঘে ঢাকা পড়েছে।', 'Bengali'],
+    ['ta', 'மழைக்கு முன் வானம் சாம்பல் மேகங்களால் மூடப்பட்டுள்ளது.', 'Tamil'],
+  ];
+  for (const [tag, text, label] of cases) {
+    test(`${label} is recognised as '${tag}'`, () => {
+      const j = judgeLanguage(text, tag);
+      assert.equal(j.verdict, 'match', `${tag}: ${j.reason}`);
+    });
+
+    test(`an English reply to a '${tag}' request is caught`, () => {
+      assert.equal(judgeLanguage(EN, tag).verdict, 'other');
+    });
+
+    test(`${label} is not mistaken for another script's language`, () => {
+      const j = judgeLanguage(text, 'ja');
+      assert.equal(j.verdict, 'other');
+      assert.equal(j.detected, tag, 'and it says what it actually saw');
+    });
+  }
+
+  test('adding a script does not leave its counter behind', () => {
+    // The tally is generated from the range table. When it was written out by
+    // hand, a new script silently counted zero and every reply in it came back
+    // `empty` — a detector that says "no language here" about a whole alphabet.
+    for (const [, text] of cases) {
+      assert.notEqual(judgeLanguage(text, 'xx').verdict, 'empty');
+    }
+  });
+
+  test('a Greek letter in an English sentence does not make it Greek', () => {
+    const maths = 'The angle θ is measured in radians and the sum is Σ over all terms here.';
+    assert.equal(judgeLanguage(maths, 'en').verdict, 'match');
+  });
+});
