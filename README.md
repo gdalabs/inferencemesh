@@ -346,8 +346,9 @@ eleven Latin-script languages told apart by function words. Anything else is
 reported `unjudged` rather than failed.
 
 Where languages share a script, the letters that separate them are checked too:
-a Ukrainian reply does not confirm a Russian claim, and a Persian one does not
-pass as Arabic. That check may only reject, never invent — a reply carrying
+a Ukrainian reply does not confirm a Russian claim, a Persian one does not pass
+as Arabic, and `zh-Hant` is not answered in simplified characters — while plain
+`zh` accepts either, because it asked for neither. That check may only reject, never invent — a reply carrying
 nothing distinctive keeps the script's verdict, and one carrying two languages'
 exclusive letters at once is treated as no evidence rather than a finding. Pairs
 with no letter to separate them (Hindi and Marathi) are still not told apart.

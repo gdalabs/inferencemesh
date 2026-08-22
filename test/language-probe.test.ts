@@ -359,3 +359,47 @@ describe('languages that share a script', () => {
     assert.equal(j.detected, 'uk', 'not the script default');
   });
 });
+
+describe('simplified and traditional Chinese', () => {
+  const HANS = '天空被灰色的云层覆盖，风开始变得潮湿。我们说这会下雨。';
+  const HANT = '天空被灰色的雲層覆蓋，風開始變得潮濕。我們說這會下雨。';
+
+  test('each script matches the tag that asks for it', () => {
+    assert.equal(judgeLanguage(HANS, 'zh-Hans').verdict, 'match');
+    assert.equal(judgeLanguage(HANT, 'zh-Hant').verdict, 'match');
+  });
+
+  test('the wrong script is caught, and named', () => {
+    const j = judgeLanguage(HANT, 'zh-Hans');
+    assert.equal(j.verdict, 'other');
+    assert.equal(j.detected, 'zh-hant');
+    assert.equal(judgeLanguage(HANS, 'zh-Hant').detected, 'zh-hans');
+  });
+
+  test('region subtags are read as the script they imply', () => {
+    assert.equal(judgeLanguage(HANT, 'zh-TW').verdict, 'match');
+    assert.equal(judgeLanguage(HANS, 'zh-CN').verdict, 'match');
+    assert.equal(judgeLanguage(HANS, 'zh-TW').verdict, 'other');
+  });
+
+  test('plain `zh` accepts either, because it asked for neither', () => {
+    assert.equal(judgeLanguage(HANS, 'zh').verdict, 'match');
+    assert.equal(judgeLanguage(HANT, 'zh').verdict, 'match');
+  });
+
+  test('characters both scripts share do not decide anything', () => {
+    // Most short Chinese is written entirely in shared characters. Guessing
+    // from that would fail a correct answer for being unremarkable.
+    const shared = '今天天气很好。';
+    assert.equal(judgeLanguage(shared, 'zh-Hans').verdict, 'match');
+    assert.equal(judgeLanguage(shared, 'zh-Hant').verdict, 'match');
+  });
+
+  test('a mixture of both is not a finding either', () => {
+    assert.equal(judgeLanguage(`${HANS}${HANT}`, 'zh-Hant').verdict, 'match');
+  });
+
+  test('Japanese is still rejected before any of this runs', () => {
+    assert.equal(judgeLanguage(JA, 'zh-Hans').detected, 'ja');
+  });
+});

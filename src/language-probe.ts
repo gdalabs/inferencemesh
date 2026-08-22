@@ -338,6 +338,41 @@ export function stripNonAnswer(text: string): string {
     .trim();
 }
 
+
+/**
+ * Simplified or traditional Chinese, when the characters say so.
+ *
+ * High-frequency pairs only, and used the same way as every other
+ * discriminator here: to refuse a match, never to claim one. Plenty of Chinese
+ * text is written entirely in characters the two scripts share — short
+ * sentences especially — and that must stay a match for whichever was asked
+ * rather than becoming a guess.
+ */
+const SIMPLIFIED_ONLY = /[们国发学会这说长门时车马语汉图关华电动经过来对开们业务无爱写讲让]/;
+const TRADITIONAL_ONLY = /[們國發學會這說長門時車馬語漢圖關華電動經過來對開業務無愛寫講讓]/;
+
+/** 'zh-hans' | 'zh-hant' | null — null when the characters do not separate them. */
+function hanVariant(text: string): LanguageTag | null {
+  const simplified = SIMPLIFIED_ONLY.test(text);
+  const traditional = TRADITIONAL_ONLY.test(text);
+  if (simplified === traditional) return null; // neither, or a mixture of both
+  return simplified ? 'zh-hans' : 'zh-hant';
+}
+
+/**
+ * Which Chinese script a tag asks for, if it asks for one.
+ *
+ * `zh` on its own does not: it is a request for Chinese, and answering it in
+ * either script is answering it. The region subtags are the conventional
+ * shorthand and are treated as the script they imply.
+ */
+function requestedHanVariant(tag: string): LanguageTag | null {
+  const t = tag.toLowerCase();
+  if (t === 'zh-hans' || t === 'zh-cn' || t === 'zh-sg' || t === 'zh-my') return 'zh-hans';
+  if (t === 'zh-hant' || t === 'zh-tw' || t === 'zh-hk' || t === 'zh-mo') return 'zh-hant';
+  return null;
+}
+
 /**
  * Grade a reply together with how it ended.
  *
@@ -411,9 +446,26 @@ export function judgeLanguage(text: string, tag: LanguageTag): LanguageJudgement
       return { verdict: 'other', share: 0, detected: 'ja', reason: 'kana present — this is Japanese' };
     }
     const zh = share(counts.han);
-    return zh >= 0.5
-      ? { verdict: 'match', share: zh, reason: `${pct(zh)} Han` }
-      : { verdict: 'other', share: zh, ...(identifyOther(counts, cleaned) ? { detected: identifyOther(counts, cleaned) as LanguageTag } : {}), reason: `only ${pct(zh)} Han` };
+    if (zh < 0.5) {
+      const detected = identifyOther(counts, cleaned);
+      return {
+        verdict: 'other',
+        share: zh,
+        ...(detected ? { detected } : {}),
+        reason: `only ${pct(zh)} Han`,
+      };
+    }
+    const asked = requestedHanVariant(tag);
+    const written = hanVariant(cleaned);
+    if (asked && written && asked !== written) {
+      return {
+        verdict: 'other',
+        share: zh,
+        detected: written,
+        reason: `Chinese, but written in ${written}, not ${asked}`,
+      };
+    }
+    return { verdict: 'match', share: zh, reason: `${pct(zh)} Han` };
   }
 
   const wantScript = SCRIPT_OF_TAG.get(want);
