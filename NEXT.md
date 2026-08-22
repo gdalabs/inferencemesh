@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = d7f96f4（push済・PRIVATE）。テスト292件 全pass。
+現在地点: origin/main = ef46158（push済・PRIVATE）。テスト302件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -28,6 +28,12 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ CLI/ゲートウェイの入力検証（commit ef46158, push済）。バンドル版で全コマンドを叩いて発見:
+  存在しないプロファイルでスタックトレース / `--privacy` `--capabilities` の打ち間違いが
+  「registry が悪い」ように見えるメッセージになる / `--min-context=abc` が NaN で無効化。
+  ゲートウェイでは `mesh/fastest` が **500**（＝サーバ側の障害）として返っていたのを 400 に
+- ✅ 出荷レジストリの signupSteps 完備をテストで固定（commit fde1dc8, push済）
 
 - ✅ 鍵の同時保存で片方が消える競合を修正（commit d7f96f4, push済）。
   「保存しました」と表示した後に消える種類。修正を戻してテストが落ちることを確認済み
