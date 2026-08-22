@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = fe9ec63（push済・PRIVATE）。テスト280件 全pass。
+現在地点: origin/main = d7f96f4（push済・PRIVATE）。テスト292件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -28,6 +28,13 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ 鍵の同時保存で片方が消える競合を修正（commit d7f96f4, push済）。
+  「保存しました」と表示した後に消える種類。修正を戻してテストが落ちることを確認済み
+- ✅ `estimateTokens` が日本語を英語の規則（4文字=1トークン）で数えていた（commit e6a16e4, push済）。
+  約4倍の過小評価で、日次トークン上限が効かない方向（＝使い過ぎ）にずれる
+- ✅ Gemini の `response_format: json_schema` が黙って無視されていた（commit 59eeadc, push済）。
+  明示的に失敗させ、mesh が対応プロバイダにフォールバックするようにした
 
 - ✅ 「同じコードが Worker でも動く」をテストで固定（commit fe9ec63, push済）。
   index.ts から辿れる範囲に node: の import が入ったら落ちる。**わざと壊して発火を確認済み**
