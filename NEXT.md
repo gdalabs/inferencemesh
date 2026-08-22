@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = 16aad73（push済・PRIVATE）。テスト215件 全pass。
+現在地点: origin/main = e129ebf（push済・PRIVATE）。テスト260件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -8,15 +8,14 @@ AFK セッション 2026-08-22 17:10〜23:10。
 
 ## P1
 
-- `src/setup.ts` / `src/setup-ui.ts` が未テスト。CLAUDE.md に
-  「readline/promises が pipe で2問目を返さない」「fragment を送らないブラウザで401」の
-  実績バグが記録されている領域
+- `src/setup-ui.ts`（ブラウザからの鍵登録ページ）が未テスト。`setup.ts` 側は済
 
 ## P2
 
-- 判定できる言語を増やす（`src/language-probe.ts`）。文字種で確定できるのに未対応:
-  ヘブライ / ギリシャ / アルメニア / ジョージア / ベンガル / タミル。
-  ラテン文字圏は機能語表の11言語のみで、それ以外は `unjudged` にしかならない
+- ヒンディー語とマラーティー語は分離できないまま（デーヴァナーガリーに区別する文字が無い。
+  語彙で分けるしかない）。ベラルーシ語も `uk` と分けていない（`be` の要求がまだ無いため）
+- he/el/hy/ka/bn/ta は判定できるが**プロンプトが英語**なので、測っているのは指示追従。
+  検証できない言語のプロンプトを自作しない（instrument が検証不能になる）
 - `judgeLanguage` は簡体字と繁体字を区別しない。`zh-Hans` / `zh-Hant` を分けて要求されても
   同じ判定になる（Han の共通部分が大きいので、区別するなら簡体専用字での判定が要る）
 - `dist/providers.default.json` はビルド生成物。ルートの `providers.default.json` を編集しても
@@ -35,6 +34,14 @@ AFK セッション 2026-08-22 17:10〜23:10。
 
 ## 完了
 
+- ✅ 単一バイナリ/バンドルで `inferencemesh setup` が ENOENT で即死していたのを修正
+  （commit 71e142c, push済）。release workflow と install.sh が配るのはこのビルド。
+  あわせて .env の 0600 化（既存ファイルには mode が効かない）と mergeEnv の空行混入も修正
+- ✅ 文字種を共有する言語の誤判定を修正（commit e129ebf, push済）。
+  ウクライナ語が `ru` の claim を confirm しなくなった。ペルシア語/アラビア語も同様。
+  判定は「否定にしか使えない」設計（両方の固有文字が出たら証拠なしとして扱う）
+- ✅ 判定できる文字種を6つ追加（he/el/hy/ka/bn/ta・commit 877c369, push済）。
+  カウンタを範囲テーブルから生成するようにした（手書き並列リストは同期漏れで無音の0になる）
 - ✅ `probe` の3つの「嘘をつく緑」を修正（commit 16aad73, push済）:
   status をメッセージの正規表現ではなく `detail.attempts` から読む /
   `languages` が何も言っていない言語を claim 扱いして FAULT にしていた /
