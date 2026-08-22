@@ -191,6 +191,29 @@ export function languageScore(model: ModelEntry, language: LanguageTag | undefin
   return DEFAULT_LANGUAGE_SCORE;
 }
 
+/**
+ * What the entry actually *says* about a language, or undefined if it says
+ * nothing. Distinct from `languageScore`, which always returns a number.
+ *
+ * The difference is the whole basis for contradicting a registry. `languages:
+ * { en: 0.9 }` asked about Japanese falls back to `DEFAULT_LANGUAGE_SCORE`,
+ * which is 0.6 — above the threshold for "this language is served". Treating
+ * that as a claim means a model that never claimed Japanese gets faulted for
+ * not answering in it, and the report is measuring its own default rather than
+ * the file. Routing wants the fallback; a disagreement check must not have it.
+ */
+export function declaredLanguageScore(
+  model: ModelEntry,
+  language: LanguageTag | undefined,
+): number | undefined {
+  if (!language) return undefined;
+  const langs = model.languages;
+  if (!langs) return undefined;
+  const tag = language.toLowerCase();
+  const base = tag.split('-')[0] as string;
+  return langs[tag] ?? langs[base] ?? langs['*'];
+}
+
 export function maxPrivacyOf(candidate: Candidate): PrivacyLevel {
   return candidate.model.maxPrivacy ?? candidate.provider.maxPrivacy;
 }

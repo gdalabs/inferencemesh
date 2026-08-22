@@ -29,11 +29,11 @@ import {
   summarise,
   type LanguageJudgement,
 } from './language-probe.js';
-import { blendedPrice, languageScore, maxPrivacyOf } from './registry.js';
+import { blendedPrice, declaredLanguageScore, maxPrivacyOf } from './registry.js';
 import { configFromEnv, loadRegistryFile, main as serveMain } from './server/node.js';
 import { runSetup } from './setup.js';
 import { syncModels } from './sync.js';
-import { ProviderError } from './providers/base.js';
+import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
 import type { Capability, PrivacyLevel } from './types.js';
 
 function fail(msg: string): never {
@@ -90,16 +90,13 @@ async function cmdProbe(argv: string[]): Promise<number> {
         detail: typeof text === 'string' ? text.slice(0, 40).replace(/\s+/g, ' ') : '',
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // maxAttempts is 1, so the mesh error wraps exactly one provider status.
-      const status =
-        err instanceof ProviderError ? err.status : Number(message.match(/\((\d{3}):/)?.[1]) || undefined;
+      const status = attemptStatus(err);
       results.push({
         key: c.key,
-        verdict: status === 429 ? 'limited' : 'broken',
+        verdict: verdictFor(status),
         ...(status ? { status } : {}),
         ms: Date.now() - t0,
-        detail: message.replace(/^all 1 attempt\(s\) failed: \S+ /, '').slice(0, 160),
+        detail: shortMessage(err),
       });
     }
   }
@@ -175,11 +172,9 @@ async function cmdProbeLanguage(language: string, argv: string[]): Promise<numbe
 
   for (const c of registry.candidates) {
     if (only && c.provider.id !== only) continue;
-    // languageScore falls back to a default; the *claim* is what the entry
-    // actually says, and a model that says nothing cannot be contradicted.
-    const claimed = c.model.languages
-      ? languageScore(c.model, language)
-      : undefined;
+    // What the entry actually says — not what routing would score. A model
+    // that claims nothing about this language cannot be contradicted by it.
+    const claimed = declaredLanguageScore(c.model, language);
     const judgements: LanguageJudgement[] = [];
     let limited = false;
     let error: string | undefined;
@@ -201,11 +196,8 @@ async function cmdProbeLanguage(language: string, argv: string[]): Promise<numbe
           judgeReply(typeof text === 'string' ? text : '', language, choice?.finish_reason),
         );
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const status =
-          err instanceof ProviderError ? err.status : Number(message.match(/\((\d{3}):/)?.[1]) || undefined;
-        if (status === 429) limited = true;
-        else error = message.replace(/^all 1 attempt\(s\) failed: \S+ /, '').slice(0, 120);
+        if (verdictFor(attemptStatus(err)) === 'limited') limited = true;
+        else error = shortMessage(err, 120);
         break;
       }
     }
@@ -231,10 +223,19 @@ async function cmdProbeLanguage(language: string, argv: string[]): Promise<numbe
   }
 
   const faults = rows.filter((r) => r.disagreement === 'fault');
+  // A candidate that produced at least one usable verdict. Everything else was
+  // unreachable, rate-limited, or replied with nothing that could be judged.
+  const judged = rows.filter((r) => (r.evidence?.matched ?? 0) + (r.evidence?.other ?? 0) > 0);
 
   if (json) {
+    // `ok` alone is a trap for a scheduler: it is true when nothing was
+    // measured at all. `judged` is what says whether `ok` means anything.
     console.log(
-      JSON.stringify({ language, measuredAt, ok: faults.length === 0, results: rows }, null, 2),
+      JSON.stringify(
+        { language, measuredAt, ok: faults.length === 0, judged: judged.length, results: rows },
+        null,
+        2,
+      ),
     );
   } else {
     for (const r of rows) {
@@ -247,9 +248,17 @@ async function cmdProbeLanguage(language: string, argv: string[]): Promise<numbe
       const flag = r.disagreement === 'fault' ? 'FAULT' : r.disagreement;
       console.log(`${r.key.padEnd(46)} ${measured} ${claim.padEnd(12)} ${flag}`);
     }
+    // "No contradictions" over zero measurements is the worst kind of green:
+    // a run where every provider was unreachable or rate-limited looks exactly
+    // like a clean bill of health. Say how many were actually judged.
+    const unreached = rows.length - judged.length;
     console.log(
-      `\n${rows.length} candidate(s) asked ${prompts.length} question(s) each in '${language}'` +
-        (faults.length ? `, ${faults.length} FAULT` : ', no contradictions'),
+      `\n${rows.length} candidate(s) asked ${prompts.length} question(s) each in '${language}': ` +
+        (judged.length === 0
+          ? 'nothing was measured'
+          : `${judged.length} judged, ` +
+            (faults.length ? `${faults.length} FAULT` : 'no contradictions')) +
+        (unreached ? ` (${unreached} not reached)` : ''),
     );
     console.log(
       'measured compliance, not competence — the registry\'s languages scores are not written by this command',

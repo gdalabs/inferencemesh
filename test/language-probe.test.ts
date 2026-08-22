@@ -1,6 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
+import { declaredLanguageScore, languageScore } from '../src/registry.js';
+import type { ModelEntry } from '../src/types.js';
 import {
   compareToRegistry,
   judgeReply,
@@ -203,5 +205,53 @@ describe('judgeLanguage — a reasoning model is not judged on its reasoning', (
 
   test('without truncation the same English reply is still a fault', () => {
     assert.equal(judgeReply(cot, 'ja', 'stop').verdict, 'other');
+  });
+});
+
+describe('what the registry actually claims about a language', () => {
+  const model = (languages?: Record<string, number>): ModelEntry => ({
+    id: 'vendor/m',
+    capabilities: ['text'],
+    contextWindow: 8000,
+    price: { inPerMTok: 0, outPerMTok: 0 },
+    ...(languages ? { languages } : {}),
+  });
+
+  test('a language the entry never mentions is not a claim', () => {
+    // languageScore falls back to DEFAULT_LANGUAGE_SCORE (0.6), which is above
+    // the "this language is served" threshold. Reading that as a claim faults
+    // a model for a language nobody said it spoke — the probe measuring its
+    // own default instead of the file.
+    const m = model({ en: 0.9 });
+    assert.equal(languageScore(m, 'ja'), 0.6, 'routing still gets a number');
+    assert.equal(declaredLanguageScore(m, 'ja'), undefined, 'the file said nothing');
+    assert.equal(compareToRegistry(summarise('ja', '2026-08-22', []), undefined), 'inconclusive');
+  });
+
+  test('a wildcard is a claim about every language', () => {
+    assert.equal(declaredLanguageScore(model({ en: 0.9, '*': 0.4 }), 'ja'), 0.4);
+  });
+
+  test('an exact tag beats the base language beats the wildcard', () => {
+    const m = model({ 'zh-hant': 0.8, zh: 0.6, '*': 0.3 });
+    assert.equal(declaredLanguageScore(m, 'zh-Hant'), 0.8);
+    assert.equal(declaredLanguageScore(m, 'zh-Hans'), 0.6);
+    assert.equal(declaredLanguageScore(m, 'ko'), 0.3);
+  });
+
+  test('an entry with no languages block claims nothing at all', () => {
+    assert.equal(declaredLanguageScore(model(), 'ja'), undefined);
+  });
+
+  test('a claim of zero is still a claim, and is not a fault when honoured', () => {
+    // 0 is falsy: a `||` here would turn "explicitly cannot do Japanese" into
+    // "said nothing", and the model would never be reported as understated.
+    const m = model({ ja: 0 });
+    assert.equal(declaredLanguageScore(m, 'ja'), 0);
+    const evidence = summarise('ja', '2026-08-22', [
+      { verdict: 'match', share: 1, reason: '' },
+      { verdict: 'match', share: 1, reason: '' },
+    ]);
+    assert.equal(compareToRegistry(evidence, 0), 'understated');
   });
 });

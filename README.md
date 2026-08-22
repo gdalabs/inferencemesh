@@ -345,6 +345,11 @@ function words. The result is printed next to what the registry claims, and only
 fault: a language the registry says is served and the model will not answer in (exit 1). A model
 rated low that answers fine is reported as `understated`, which is worth reading and nobody's alert.
 
+A run where every candidate was unreachable or rate-limited reports `nothing
+was measured`, not `no contradictions` — and `--json` carries a `judged` count
+beside `ok`, because `ok: true` over zero measurements is the most misleading
+green there is.
+
 **It never writes the score.** Answering in Japanese is compliance, not competence, and turning a
 pass into a `0.84` would put an invented number exactly where a measured one belongs — the same
 failure as an unverified price. What it cannot judge it says it cannot judge: a language with no
