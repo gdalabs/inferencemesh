@@ -133,6 +133,33 @@ describe('gateway — discovery', () => {
     assert.equal(body.data.find((d) => d.id === 'mesh/free')?.mesh.kind, 'profile');
   });
 
+  test('every listed model carries the fields an OpenAI client deserialises', async () => {
+    // The official SDKs type `created` as required. Leaving it out makes a
+    // strict client fail on a listing that is otherwise correct — and nothing
+    // here knows when a model was created, so the value is the load time,
+    // documented as a placeholder rather than dressed up as a date.
+    const res = await gateway()(
+      new Request('http://localhost/v1/models', { headers: { authorization: 'Bearer secret' } }),
+    );
+    const body = (await res.json()) as { data: Array<Record<string, unknown>> };
+    assert.ok(body.data.length > 0);
+    for (const m of body.data) {
+      assert.equal(typeof m['id'], 'string');
+      assert.equal(m['object'], 'model');
+      assert.equal(typeof m['created'], 'number', `${String(m['id'])} has no created`);
+      assert.equal(typeof m['owned_by'], 'string');
+    }
+  });
+
+  test('the listing does not churn between calls', async () => {
+    const g = gateway();
+    const req = () =>
+      g(new Request('http://localhost/v1/models', { headers: { authorization: 'Bearer secret' } }));
+    const a = (await (await req()).json()) as { data: Array<{ created: number }> };
+    const b = (await (await req()).json()) as { data: Array<{ created: number }> };
+    assert.equal(a.data[0]?.created, b.data[0]?.created);
+  });
+
   test('/healthz reports the providers that were skipped at load time', async () => {
     const { fetch } = fakeFetch(() => okChat('hi'));
     const mesh = new InferenceMesh({

@@ -84,6 +84,21 @@ function authorized(req: Request, tokens: Set<string>): boolean {
   return tokens.has(m[1] as string);
 }
 
+/**
+ * `created` for the model list.
+ *
+ * The OpenAI Model object carries a creation timestamp, and the official SDKs
+ * type it as required — omitting it makes a strictly-deserialising client fail
+ * on a listing that is otherwise fine. Nothing here knows when a model was
+ * created, and inventing a plausible date would be a fact nobody has.
+ *
+ * So this is the time this process loaded, stated as what it is: a stable
+ * placeholder that satisfies the shape without claiming to be a creation date.
+ * Stable matters — a value recomputed per request would churn in any client
+ * that diffs the listing.
+ */
+const LISTING_CREATED = Math.floor(Date.now() / 1000);
+
 export async function handleRequest(req: Request, opts: GatewayOptions): Promise<Response> {
   const url = new URL(req.url);
   const origin = req.headers.get('origin');
@@ -206,12 +221,14 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
     const profiles = Object.keys(opts.mesh.registry.profiles).map((name) => ({
       id: `mesh/${name}`,
       object: 'model',
+      created: LISTING_CREATED,
       owned_by: 'inferencemesh',
       mesh: { kind: 'profile' },
     }));
     const models = opts.mesh.registry.candidates.map((c) => ({
       id: c.key,
       object: 'model',
+      created: LISTING_CREATED,
       owned_by: c.provider.id,
       mesh: {
         kind: 'model',
