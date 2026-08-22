@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = c480e8c（push済・PRIVATE）。テスト312件 全pass。
+現在地点: origin/main = dc45ac9（push済・PRIVATE）。テスト315件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -22,12 +22,20 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - 🔴 OpenRouter カタログにある**未登録の無料モデル18件**を probe してから採用する。
   `sync --provider=openrouter --dry-run` で一覧が出る。probe 前の追加は禁止
   （2026-08-16 に「カタログにあるのに無料枠を離れていた」実績がある）
-- `maxConcurrent` の実測（ROADMAP Now）。並列度を上げて 429 が出る点を探す。要キー・要課金枠
+- `maxConcurrent` の実測の残り（llm7 は 2026-08-22 に実測して 1 と判明・登録済み）。
+  他プロバイダは鍵が要るので、本人が「その無料枠を使ってよい」と決めてから
 - `sync` のカタログ追加の残り（NVIDIA / Chutes / ModelScope / OVHcloud）。
   OpenRouter は実装済み・キーレスなので AFK 中でも引ける
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ 🔴 llm7 の `maxConcurrent` を**実測**して 1 と確定（commit b646431, push済）。
+  ROADMAP Now の1件。鍵不要なので課金枠を使わずに測れた。3回とも再現
+- ✅ 環境変数10個のうち8個が README に無かったので表を追加し、
+  **ドキュメントが遅れたらテストが落ちる**ようにした（commit dc45ac9, push済）
+- ✅ 自己レビューで自分の当日変更から2件発見（commit aedbca8, push済）:
+  ledger のロード失敗が永久に記憶される / `fail()` が `process.exit` を使っていた
 
 - ✅ 起動時エラー2件（commit c480e8c, push済）: ポート衝突が生のスタックトレース /
   `INFERENCEMESH_REGISTRY` のタイプミスで黙って埋め込みレジストリにフォールバック
