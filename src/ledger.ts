@@ -54,6 +54,7 @@ export interface AdmitResult {
 
 export class QuotaLedger {
   private state: Record<string, LedgerRecord> | null = null;
+  private loading: Promise<Record<string, LedgerRecord>> | null = null;
   private dirty = false;
 
   constructor(
@@ -61,9 +62,31 @@ export class QuotaLedger {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
+  /**
+   * The state, loaded once.
+   *
+   * The load has to be memoised as a *promise*, not just as its result. Any
+   * real storage — a file, KV — returns a fresh object per call, so two
+   * requests arriving before the first load resolves each got their own copy,
+   * and the second overwrote the first: reservations vanished and the limits
+   * were not applied to either. Measured with a 5ms storage: three requests
+   * against `requestsPerMinute: 2` were all admitted and one was booked.
+   *
+   * That is a cold start plus a fan-out, which is the ordinary way this gets
+   * used, and it defeats the one thing admission-time booking exists for.
+   */
   private async ensure(): Promise<Record<string, LedgerRecord>> {
-    if (this.state === null) this.state = await this.storage.load();
-    return this.state;
+    if (this.state !== null) return this.state;
+    if (this.loading === null) {
+      this.loading = this.storage.load().then((loaded) => {
+        // Still null unless another path beat us here; never discard a state
+        // that has already taken bookings.
+        this.state ??= loaded;
+        this.loading = null;
+        return this.state;
+      });
+    }
+    return this.loading;
   }
 
   private entry(state: Record<string, LedgerRecord>, key: string, now: number): LedgerRecord {

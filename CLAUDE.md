@@ -45,6 +45,9 @@ npm run build:binary     # single executable, runs without Node installed
 node dist/src/cli.js route free --language=ja   # explain a decision, offline
 node dist/src/cli.js probe                      # call every candidate for real
 node dist/src/cli.js probe --language=ja         # check each answers in Japanese
+# Editing providers.default.json? `npm run build` first. tsc copies it to
+# dist/providers.default.json, and the running CLI finds that copy — which is
+# correct for an installed package and confusing for exactly one afternoon.
 node dist/src/cli.js sync --provider=redpill --dry-run   # generate from a catalog
 node scripts/discover-providers.mjs             # find new free tiers; exit 10 = news
 ```

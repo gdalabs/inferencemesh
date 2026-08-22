@@ -143,3 +143,64 @@ describe('health tracker', () => {
     assert.equal(h.latencyMs('k'), 200);
   });
 });
+
+describe('ledger — a cold start under load', () => {
+  /** Storage that takes a tick and hands back a fresh object, like a file. */
+  function slowStorage(initial: Record<string, unknown> = {}) {
+    let saved = JSON.parse(JSON.stringify(initial)) as Record<string, never>;
+    let loads = 0;
+    return {
+      loads: () => loads,
+      async load() {
+        loads++;
+        await new Promise((r) => setTimeout(r, 5));
+        return JSON.parse(JSON.stringify(saved)) as Record<string, never>;
+      },
+      async save(state: Record<string, never>) {
+        saved = JSON.parse(JSON.stringify(state)) as Record<string, never>;
+      },
+    };
+  }
+
+  test('a burst arriving before the first load still respects the limit', async () => {
+    // Measured before the fix: three admitted against rpm 2, one booked. Any
+    // storage that is not the in-memory one returns a fresh object per load,
+    // so the second caller overwrote the first caller's reservation. A cold
+    // start plus a fan-out is the ordinary case, and it defeated the entire
+    // point of booking at admission time.
+    const storage = slowStorage();
+    const ledger = new QuotaLedger(storage);
+    const quota = { requestsPerMinute: 2 };
+    const results = await Promise.all([
+      ledger.admit('p/m', quota),
+      ledger.admit('p/m', quota),
+      ledger.admit('p/m', quota),
+    ]);
+    assert.equal(results.filter((r) => r.ok).length, 2);
+    const snap = await ledger.snapshot();
+    assert.equal(snap['p/m']?.recent.length, 2, 'and what was admitted is what was booked');
+  });
+
+  test('the load happens once, however many callers arrive first', async () => {
+    const storage = slowStorage();
+    const ledger = new QuotaLedger(storage);
+    await Promise.all([
+      ledger.admit('a', undefined),
+      ledger.admit('b', undefined),
+      ledger.snapshot(),
+    ]);
+    assert.equal(storage.loads(), 1);
+  });
+
+  test('state already on disk is not lost by a concurrent first request', async () => {
+    const storage = slowStorage({
+      'p/m': { recent: [], day: '2000-01-01', dayRequests: 7, dayTokens: 0 },
+    });
+    const ledger = new QuotaLedger(storage);
+    await Promise.all([ledger.admit('p/m', undefined), ledger.admit('p/m', undefined)]);
+    const snap = await ledger.snapshot();
+    // Yesterday's day key resets the daily counters; what matters is that the
+    // record survived the concurrent load at all.
+    assert.ok(snap['p/m']);
+  });
+});

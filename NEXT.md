@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = e129ebf（push済・PRIVATE）。テスト260件 全pass。
+現在地点: origin/main = ebd6569（push済・PRIVATE）。テスト263件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -8,9 +8,9 @@ AFK セッション 2026-08-22 17:10〜23:10。
 
 ## P1
 
-- `src/setup-ui.ts`（ブラウザからの鍵登録ページ）が未テスト。`setup.ts` 側は済
 
 ## P2
+
 
 - ヒンディー語とマラーティー語は分離できないまま（デーヴァナーガリーに区別する文字が無い。
   語彙で分けるしかない）。ベラルーシ語も `uk` と分けていない（`be` の要求がまだ無いため）
@@ -18,9 +18,6 @@ AFK セッション 2026-08-22 17:10〜23:10。
   検証できない言語のプロンプトを自作しない（instrument が検証不能になる）
 - `judgeLanguage` は簡体字と繁体字を区別しない。`zh-Hans` / `zh-Hant` を分けて要求されても
   同じ判定になる（Han の共通部分が大きいので、区別するなら簡体専用字での判定が要る）
-- `dist/providers.default.json` はビルド生成物。ルートの `providers.default.json` を編集しても
-  リビルドするまで `node dist/src/cli.js` には効かない（実際に一度これで混乱した）。
-  README か CLAUDE.md に1行入れるか、registry の解決順を見直す
 
 ## P3（実測・ネットワークが要るので AFK 中はやらない）
 
@@ -37,6 +34,9 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - ✅ 単一バイナリ/バンドルで `inferencemesh setup` が ENOENT で即死していたのを修正
   （commit 71e142c, push済）。release workflow と install.sh が配るのはこのビルド。
   あわせて .env の 0600 化（既存ファイルには mode が効かない）と mergeEnv の空行混入も修正
+- ✅ ゲートウェイのトークンを journal に出さないようにした（commit ebd6569, push済）。
+  TTY のときだけ setup URL にトークンを出す。setup ページの不変条件3つもテスト化
+  （外部ホストを読まない / token は fragment から / 鍵をブラウザ storage に置かない）
 - ✅ 文字種を共有する言語の誤判定を修正（commit e129ebf, push済）。
   ウクライナ語が `ru` の claim を confirm しなくなった。ペルシア語/アラビア語も同様。
   判定は「否定にしか使えない」設計（両方の固有文字が出たら証拠なしとして扱う）
