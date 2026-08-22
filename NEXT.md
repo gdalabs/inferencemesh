@@ -1,6 +1,6 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = 80ec571（push済・PRIVATE）。テスト266件 全pass。
+現在地点: origin/main = befb413（push済・PRIVATE）。テスト266件 全pass。
 AFK セッション 2026-08-22 17:10〜23:10。
 
 🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
@@ -30,6 +30,10 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
 
 ## 完了
+
+- ✅ Docker 2件（commit befb413, push済）: HEALTHCHECK がトークン無しで認証必須の /healthz を
+  叩いていて**永久に unhealthy**（実測 failing streak 3）/ 鍵の保存先が read-only の /app 配下で
+  **検証成功後に書き込み失敗**。ビルドして実測確認
 
 - ✅ `install.sh` を fail-closed に（commit 80ec571, push済）。SHA256SUMS が取れない/
   エントリが無い場合に黙ってインストールしていた。`file://` のローカル配布物で全5経路を実測。
