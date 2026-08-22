@@ -60,8 +60,13 @@
   should be too.
 - **KV-backed ledger for Workers.** The in-memory default resets with the
   isolate, which under-counts against daily caps.
-- **Tool calling for the Gemini adapter.** OpenAI-compatible providers pass tools
-  through today; the native Gemini adapter does not translate them yet.
+- **Tool calling and json_schema for the Gemini adapter.** OpenAI-compatible
+  providers pass both through today; the native adapter translates neither.
+  `json_schema` now throws rather than being ignored, so the mesh falls over to
+  a provider that has it instead of returning prose to a caller who asked for a
+  shape — but translating an OpenAPI-subset schema, and function declarations,
+  needs a real key to check the result against. Guessing at a wire format from
+  documentation is how you ship something that type-checks and 400s.
 - **Embeddings and rerank.** Present in the capability type, absent from adapters.
 
 ## Non-goals

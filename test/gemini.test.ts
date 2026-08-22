@@ -120,6 +120,31 @@ describe('gemini adapter — request shape', () => {
     assert.deepEqual(body.contents[0]?.parts[1]?.inlineData, { mimeType: 'image/png', data: 'QUJD' });
   });
 
+  test('a response_format it cannot translate is refused, not ignored', async () => {
+    // Ignoring json_schema returns prose to a caller who asked for a shape,
+    // and the failure surfaces later as a parse error with nothing pointing
+    // back here. Throwing lets the mesh fall over to a provider that has it.
+    const { fetch } = fakeFetch(() => geminiOk('hi'));
+    await assert.rejects(
+      () =>
+        new GeminiAdapter().chat(
+          ctx([{ role: 'user', content: 'hi' }], fetch, {
+            response_format: { type: 'json_schema', json_schema: { name: 'x', schema: {} } },
+          }),
+        ),
+      /response_format 'json_schema' is not translated/,
+    );
+  });
+
+  test("json_object still becomes Gemini's own JSON mode", async () => {
+    const { fetch, calls } = fakeFetch(() => geminiOk('hi'));
+    await new GeminiAdapter().chat(
+      ctx([{ role: 'user', content: 'hi' }], fetch, { response_format: { type: 'json_object' } }),
+    );
+    const body = calls[0]?.body as { generationConfig: { responseMimeType?: string } };
+    assert.equal(body.generationConfig.responseMimeType, 'application/json');
+  });
+
   test('a remote image URL is refused loudly rather than dropped silently', async () => {
     const { fetch } = fakeFetch(() => geminiOk('hi'));
     await assert.rejects(

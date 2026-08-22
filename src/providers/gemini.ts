@@ -102,8 +102,23 @@ function toGeminiBody(ctx: AdapterContext): GeminiBody {
   if (req.stop !== undefined) {
     generationConfig['stopSequences'] = Array.isArray(req.stop) ? req.stop : [req.stop];
   }
-  if (req.response_format?.type === 'json_object') {
-    generationConfig['responseMimeType'] = 'application/json';
+  if (req.response_format) {
+    const kind = req.response_format.type;
+    if (kind === 'json_object') {
+      generationConfig['responseMimeType'] = 'application/json';
+    } else if (kind !== 'text') {
+      // Same rule as the remote image above: refuse loudly rather than drop it.
+      //
+      // `json_schema` is the one that matters. Ignoring it returns free-form
+      // prose to a caller who asked for a shape, and the failure surfaces
+      // later as a parse error with nothing pointing here. Throwing lets the
+      // mesh fall over to a provider that does support it, which is the whole
+      // point of having a chain — translating an OpenAPI-subset schema is not
+      // something to guess at without a real request to check it against.
+      throw new Error(
+        `gemini adapter: response_format '${kind}' is not translated; only 'json_object' and 'text' are`,
+      );
+    }
   }
 
   const body: GeminiBody = { contents, generationConfig };
