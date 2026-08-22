@@ -92,7 +92,7 @@ export const EXPIRY_WARNING_DAYS = 60;
  * date this understands — a catalog is free to put anything in that field, and
  * guessing at it would be worse than staying quiet.
  */
-function daysBetween(from: string, to: string): number | null {
+export function daysBetween(from: string, to: string): number | null {
   const a = Date.parse(`${from}T00:00:00Z`);
   const b = Date.parse(`${to}T00:00:00Z`);
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;

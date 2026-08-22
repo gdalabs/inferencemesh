@@ -29,10 +29,10 @@ import {
   summarise,
   type LanguageJudgement,
 } from './language-probe.js';
-import { blendedPrice, declaredLanguageScore, maxPrivacyOf } from './registry.js';
+import { blendedPrice, declaredLanguageScore, maxPrivacyOf, type Registry } from './registry.js';
 import { configFromEnv, loadRegistryFile, main as serveMain } from './server/node.js';
 import { runSetup } from './setup.js';
-import { syncModels } from './sync.js';
+import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
 import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
 import type { Capability, PrivacyLevel } from './types.js';
 
@@ -49,6 +49,36 @@ async function loadRegistry() {
     console.warn(`warn: provider '${w.providerId}' skipped: ${w.reason}`);
   }
   return registry;
+}
+
+
+/**
+ * Free tiers that have announced their own end date.
+ *
+ * `sync` records `expiresAt` from a provider's catalog, and until now the only
+ * place it appeared was the sync report — a command run when the registry is
+ * being regenerated, which is not when you want to hear that a model you route
+ * to stops existing on Monday. `probe` is the one people put on a schedule, so
+ * it says so too.
+ *
+ * Nothing routes on this. It is a statement of intent by the provider, and a
+ * model that outlives its own expiry keeps working; the date only decides what
+ * gets said out loud.
+ */
+function expiryNotes(registry: Registry, today: string): string[] {
+  const notes: string[] = [];
+  for (const c of registry.candidates) {
+    const when = c.model.expiresAt;
+    if (!when) continue;
+    const days = daysBetween(today, when);
+    if (days === null || days > EXPIRY_WARNING_DAYS) continue;
+    notes.push(
+      days < 0
+        ? `${c.key}: the catalog said this free tier ended ${when} — still listed, so probe it`
+        : `${c.key}: this free tier is announced to end ${when} (${days} day(s) away)`,
+    );
+  }
+  return notes;
 }
 
 async function cmdProbe(argv: string[]): Promise<number> {
@@ -122,6 +152,9 @@ async function cmdProbe(argv: string[]): Promise<number> {
         (limited.length ? `, ${limited.length} rate-limited (not a fault)` : '') +
         (broken.length ? `, ${broken.length} BROKEN` : ''),
     );
+    for (const n of expiryNotes(registry, new Date().toISOString().slice(0, 10))) {
+      console.log(`note  ${n}`);
+    }
   }
   // Only rot sets the exit code. Being rate limited is the free tier working.
   return broken.length === 0 ? 0 : 1;
@@ -296,6 +329,11 @@ async function cmdRoute(argv: string[]): Promise<number> {
   if (decision.rejected.length) {
     console.log('\nrejected:');
     for (const r of decision.rejected) console.log(`  - ${r.key.padEnd(48)} ${r.reason}`);
+  }
+  const notes = expiryNotes(registry, new Date().toISOString().slice(0, 10));
+  if (notes.length) {
+    console.log('\nending soon:');
+    for (const n of notes) console.log(`  - ${n}`);
   }
   return decision.ranked.length > 0 ? 0 : 1;
 }

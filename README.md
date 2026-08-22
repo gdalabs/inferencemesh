@@ -283,6 +283,10 @@ form, that a free tier ends on a date. Sync records it as `expiresAt` and warns
 when it is within 60 days — three of the nvidia `:free` ids were two days out
 when this was written.
 
+`probe` and `route` say it too, since a sync report is read when the registry
+is being regenerated and not when you want to hear that something you route to
+stops existing on Monday.
+
 Nothing routes on it. A date is a statement of intent, not an observation, and
 a model that outlives its own announced expiry should keep serving rather than
 be dropped by arithmetic in a JSON file. Far-future sentinels (OpenRouter
