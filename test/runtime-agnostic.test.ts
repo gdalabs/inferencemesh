@@ -99,3 +99,26 @@ describe('the settings are documented', () => {
     assert.deepEqual(stale, [], `documented but unread: ${stale.join(', ')}`);
   });
 });
+
+describe('the Worker example', () => {
+  test('the README shows the file the build compiles', async () => {
+    // The version that lived only in the README did not type-check: handing a
+    // Worker `Env` straight to registryFrom fails on a missing index
+    // signature, which is the reader's first compile. The example is a real
+    // file now, and this keeps the two from drifting apart again.
+    const [src, readme] = await Promise.all([
+      readFile(resolve(SRC, '../examples/worker.ts'), 'utf8'),
+      readFile(resolve(SRC, '../README.md'), 'utf8'),
+    ]);
+    const body = (src.split('*/\n')[1] ?? '')
+      .trimStart()
+      .replace("'../src/index.js'", "'inferencemesh'")
+      .replace("'../providers.default.json'", "'./providers.json'")
+      .trimEnd();
+    assert.ok(body.length > 0, 'the example has a body to compare');
+    assert.ok(
+      readme.includes(body),
+      'README and examples/worker.ts have drifted — the README block is not the compiled file',
+    );
+  });
+});

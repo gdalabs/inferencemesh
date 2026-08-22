@@ -146,14 +146,26 @@ is somebody else's free inference budget. Put `tailscale serve` or a reverse pro
 
 ### On Cloudflare Workers
 
-`handleRequest` is a plain Fetch handler, so a Worker is the whole integration:
+`handleRequest` is a plain Fetch handler, so a Worker is the whole integration. This is
+[`examples/worker.ts`](examples/worker.ts), which the build compiles — a snippet that lives only in
+a README is one nobody has ever run:
 
 ```ts
 import { handleRequest, InferenceMesh, registryFrom } from 'inferencemesh';
-import registryFile from '../providers.json';
+import registryFile from './providers.json';
+
+/**
+ * Bindings. The index signature is what lets the whole `env` be handed to the
+ * registry as its source of provider keys — each provider names the variable
+ * it wants, so they are not listed here one by one.
+ */
+interface Env {
+  GATEWAY_TOKENS: string;
+  [key: string]: string | undefined;
+}
 
 export default {
-  async fetch(req: Request, env: Env) {
+  async fetch(req: Request, env: Env): Promise<Response> {
     const mesh = new InferenceMesh({ registry: registryFrom(registryFile, { env }) });
     return handleRequest(req, { mesh, tokens: new Set(env.GATEWAY_TOKENS.split(',')) });
   },
