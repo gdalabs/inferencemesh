@@ -75,3 +75,41 @@ describe('the published package points at files that exist', () => {
     assert.deepEqual(misses, [], misses.join('; '));
   });
 });
+
+describe('nothing pulls package.json into the bundle', () => {
+  test('no source file imports it', async () => {
+    // A JSON import inlines the whole file. package.json holds the
+    // `build:binary` script, which holds the SEA sentinel, so the sentinel
+    // ends up inside the blob and postject refuses to inject: "Multiple
+    // occurences of sentinel found in the binary". Every unit test passed and
+    // the single executable could not be built. Measured, not theorised.
+    const dir = resolve(ROOT, 'src');
+    const files: string[] = [];
+    const walk = async (d: string): Promise<void> => {
+      const { readdir } = await import('node:fs/promises');
+      for (const e of await readdir(d, { withFileTypes: true })) {
+        const full = resolve(d, e.name);
+        if (e.isDirectory()) await walk(full);
+        else if (e.name.endsWith('.ts')) files.push(full);
+      }
+    };
+    await walk(dir);
+    const offenders: string[] = [];
+    for (const f of files) {
+      const source = await readFile(f, 'utf8');
+      if (/from\s+'[^']*package\.json'/.test(source)) offenders.push(f.slice(ROOT.length + 1));
+    }
+    assert.deepEqual(offenders, [], offenders.join('; '));
+  });
+});
+
+describe('the version is stated once', () => {
+  test('src/version.ts matches package.json', async () => {
+    // The CLI cannot import package.json: a JSON import inlines the whole file
+    // into the bundle, scripts included, and `build:binary` contains the SEA
+    // sentinel — postject then finds it twice and refuses to inject. So the
+    // version is written in two places, and this is what keeps them equal.
+    const { VERSION } = await import('../src/version.js');
+    assert.equal(VERSION, (await pkg())['version']);
+  });
+});

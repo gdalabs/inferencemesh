@@ -37,7 +37,7 @@ import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
 // Compiled in, not read at runtime: a single executable has no package.json
 // beside it, and a binary that cannot say what it is turns every bug report
 // into a guess about which build the reporter has.
-import pkg from '../package.json' with { type: 'json' };
+import { VERSION } from './version.js';
 import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
 import { PRIVACY_ORDER, type Capability, type PrivacyLevel } from './types.js';
 
@@ -510,7 +510,7 @@ async function run(): Promise<void> {
     case 'version':
     case '--version':
     case '-v':
-      console.log(`inferencemesh ${(pkg as { version: string }).version}`);
+      console.log(`inferencemesh ${VERSION}`);
       break;
     case 'probe': {
       const lang = argv.find((a) => a.startsWith('--language='))?.split('=')[1];
