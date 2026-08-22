@@ -36,7 +36,11 @@ RUN npx tsc -p tsconfig.json
 
 # The test suite needs no network, so it runs at build time. An image that
 # cannot pass its own tests should never reach a registry.
-RUN node --test dist/test/
+#
+# The glob, not the directory: `node --test dist/test/` stopped walking
+# directories in Node 22 and fails with "Cannot find module". It also picks up
+# helpers.js, which contains no tests and is counted as one.
+RUN node --test dist/test/*.test.js
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
