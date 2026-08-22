@@ -372,6 +372,7 @@ Model ids and free tiers **do** rot, silently, and the first symptom is a user w
 Turn that into an exit code:
 
 ```sh
+inferencemesh version          # which build this is
 inferencemesh probe            # calls every candidate once
 inferencemesh probe --json     # for a scheduler
 ```

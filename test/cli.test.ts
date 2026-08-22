@@ -69,6 +69,30 @@ describe('cli — a mistyped argument is a message, not a crash', () => {
   });
 });
 
+describe('cli — version', () => {
+  test('the binary can say what it is', async () => {
+    // A distributed executable with no way to report its version turns every
+    // bug report into a guess about which build the reporter has. The value is
+    // compiled in, because a single executable has no package.json beside it.
+    for (const flag of ['version', '--version', '-v']) {
+      const r = await cli([flag]);
+      assert.equal(r.code, 0, flag);
+      assert.match(r.out, /^inferencemesh \d+\.\d+\.\d+/, flag);
+    }
+  });
+
+  test('it is the version the package declares', async () => {
+    const pkg = JSON.parse(
+      await (await import('node:fs/promises')).readFile(
+        new URL('../../package.json', import.meta.url),
+        'utf8',
+      ),
+    ) as { version: string };
+    const r = await cli(['version']);
+    assert.equal(r.out.trim(), `inferencemesh ${pkg.version}`);
+  });
+});
+
 describe('cli — the offline commands still work', () => {
   test('route ranks candidates and exits 0', async () => {
     const r = await cli(['route', 'free']);

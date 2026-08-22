@@ -34,7 +34,7 @@ code runs on Node, Cloudflare Workers, Deno and Bun.
 - `src/probe-report.ts` — the pure half of `probe`: what a failure means.
   Outside `cli.ts` because importing that file runs the CLI.
 - `src/server/node.ts` — Node server, fail-closed auth, key storage.
-- `src/cli.ts` — `setup` / `probe` / `route` / `serve`.
+- `src/cli.ts` — `setup` / `probe` / `route` / `sync` / `serve` / `version`.
 
 ## Commands
 

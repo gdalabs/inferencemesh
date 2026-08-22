@@ -7,6 +7,7 @@
  *   inferencemesh probe --language=ja   check each one answers in that language
  *   inferencemesh route <profile>  explain a routing decision without any network
  *   inferencemesh serve            start the Node gateway
+ *   inferencemesh version          which build this is
  *
  * `probe` exists because a registry file rots silently. Model ids get retired,
  * free tiers get withdrawn, and a key gets revoked — none of which produce an
@@ -33,6 +34,10 @@ import { blendedPrice, declaredLanguageScore, maxPrivacyOf, type Registry } from
 import { configFromEnv, loadRegistryFile, main as serveMain } from './server/node.js';
 import { runSetup } from './setup.js';
 import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
+// Compiled in, not read at runtime: a single executable has no package.json
+// beside it, and a binary that cannot say what it is turns every bug report
+// into a guess about which build the reporter has.
+import pkg from '../package.json' with { type: 'json' };
 import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
 import { PRIVACY_ORDER, type Capability, type PrivacyLevel } from './types.js';
 
@@ -498,6 +503,11 @@ async function run(): Promise<void> {
   // lose the tail of its own output. Setting the code and letting the process
   // end naturally flushes first. This cost an afternoon once; leave it alone.
   switch (cmd) {
+    case 'version':
+    case '--version':
+    case '-v':
+      console.log(`inferencemesh ${(pkg as { version: string }).version}`);
+      break;
     case 'probe': {
       const lang = argv.find((a) => a.startsWith('--language='))?.split('=')[1];
       process.exitCode = lang ? await cmdProbeLanguage(lang, argv) : await cmdProbe(argv);
@@ -525,7 +535,7 @@ async function run(): Promise<void> {
       await serveMain();
       break;
     default:
-      fail('usage: inferencemesh <setup|probe|route|sync|serve> [options]');
+      fail('usage: inferencemesh <setup|probe|route|sync|serve|version> [options]');
   }
 }
 
