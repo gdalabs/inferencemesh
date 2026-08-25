@@ -350,6 +350,20 @@ non-English caller — the same failure as an unverified price, with no invoice
 to catch it. New entries come out unrated and score neutrally until you rate
 them.
 
+### Anonymous previews are not registry material
+
+OpenRouter's `stealth/` namespace is an unreleased model served without saying whose it is.
+Fourteen since April 2025 — GPT-4.1, GPT-5, Grok 4 Fast, Xiaomi's MiMo and Meituan's LongCat all
+passed through it — running a median of four to twelve days before the id disappears and the model
+ships under a real name. Free, and still guaranteed rot: `sync` refuses to write one into
+`providers.default.json` at all, names it in a warning on every run, and generates it at
+`maxPrivacy: "public"` because the operator is anonymous and retains the prompts.
+
+The date field cannot save you here. On 2026-08-25 `stealth/ox-alpha` carried
+`expiration_date: 2098-12-31` — the sentinel meaning *no end announced* — on a listing whose whole
+format lasts a fortnight. **The one machine-readable warning we have said "never" about the entry
+most certain to vanish.** Hence a flag of its own rather than trusting the date.
+
 A provider stanza that sync has to create comes out at `maxPrivacy: "public"`, the lowest tier,
 and says so. Generating `internal` would be sync deciding what a provider may be trusted with —
 the exact judgement it refuses to make on an entry that already exists, made silently on a new one.

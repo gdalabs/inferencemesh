@@ -51,6 +51,16 @@ export interface CatalogModel {
    * entries and only on the catalogs that publish it at all.
    */
   expiresAt?: string;
+  /**
+   * The listing is temporary by design, whatever its dates say.
+   *
+   * OpenRouter's anonymous previews are the case this exists for: fourteen of
+   * them since April 2025, a median of four to twelve days each, and then the
+   * id disappears and the model returns under a real name. A free tier that
+   * shrinks is one thing; an id that stops existing is another, and no amount
+   * of re-syncing recovers it.
+   */
+  ephemeral?: boolean;
   /** One line for a human reading the generated file. */
   note?: string;
 }
@@ -306,6 +316,19 @@ export function syncModels(
   // far-future sentinel for "no expiry" — OpenRouter writes 2098-12-31 — and
   // reporting those every run would bury the ones that matter. The date is
   // still recorded either way; this only decides what gets said out loud.
+  // An announced date is not the only way a listing ends. These say so in
+  // their own way — and the one that matters most says the opposite: on
+  // 2026-08-25 `stealth/ox-alpha` carried `expiration_date: 2098-12-31`, the
+  // sentinel for "no end announced", on a listing whose whole format lasts a
+  // week or two. The expiry warning below would never fire for it.
+  for (const found of catalog) {
+    if (!found.ephemeral) continue;
+    warnings.push(
+      `${found.id}: a temporary listing — this kind is withdrawn within a week or two and the id ` +
+        `stops existing, whatever its expiry date claims. Fine to try; do not route production at it.`,
+    );
+  }
+
   for (const m of models) {
     if (!m.expiresAt || m.disabled) continue;
     const days = daysBetween(today, m.expiresAt);

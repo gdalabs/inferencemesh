@@ -495,6 +495,19 @@ async function cmdSync(argv: string[]): Promise<number> {
     );
   }
 
+  // Free, and still not shippable. An anonymous preview is withdrawn within a
+  // week or two and the id stops existing — a registry entry for one is rot
+  // with a date on it, and it is the users who installed this who find out.
+  const temporary = fetched.filter((m) => m.ephemeral).map((m) => m.id);
+  if (intoDefault && temporary.length > 0) {
+    fail(
+      `refusing to write ${temporary.length} temporary listing(s) into providers.default.json:\n` +
+        temporary.map((id) => `    ${id}`).join('\n') +
+        `\n  These are withdrawn within weeks and the id goes with them. Try them by hand ` +
+        `(--out=providers.local.json), do not ship them.`,
+    );
+  }
+
   if (changes.length === 0) console.log('\nno changes.');
   else {
     console.log(`\n${changes.length} change(s):`);

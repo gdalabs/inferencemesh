@@ -87,6 +87,19 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   one that bites: no catalog describes it, so a wholesale overwrite deletes a
   hand-recorded `code` from an unchanged model and `mesh/coding` stops seeing
   it. `CATALOG_OWNED_CAPABILITIES` is the list a catalog gets to speak about.
+- 🔴 **An anonymous preview never goes in the shipped registry.** OpenRouter's
+  `stealth/*` is an unreleased model with the vendor withheld; fourteen of them
+  since 2025-04, a median of 4–12 days, then the id stops existing. `cmdSync`
+  refuses them into `providers.default.json`, `sync` warns every run, and the
+  reader sets `maxPrivacy: 'public'` — the operator is anonymous and keeps the
+  prompts. Their `expiration_date` is the far-future sentinel, so the expiry
+  warning is exactly the check that cannot catch them.
+- 🔴 **A number in a pricing override is not necessarily a price.** `utc_days`
+  and `min_prompt_tokens` appeared between 2026-08-22 and 2026-08-25; reading
+  the threshold as money marks a free model paid and it silently stops being
+  offered. Conditions are listed by name in `PRICING_CONDITION_KEYS`; anything
+  else numeric counts as money, so a *new* price key is caught rather than
+  skipped.
 - 🔴 **`expiresAt` is never routed on.** An announced end date is a statement of
   intent, not an observation; a model that outlives its own expiry should keep
   serving. `probe` decides what works. Far-future sentinels (`2098-12-31`) are

@@ -471,3 +471,100 @@ describe('OPENROUTER catalog reader', () => {
     assert.throws(() => OPENROUTER.read({ data: 'nope' }), /no `data` array/);
   });
 });
+
+describe('OpenRouter anonymous previews', () => {
+  const stealth = (over: Record<string, unknown> = {}) => ({
+    data: [
+      {
+        id: 'stealth/ox-alpha',
+        name: 'Ox Alpha',
+        context_length: 1048576,
+        architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] },
+        pricing: { prompt: '0', completion: '0' },
+        supported_parameters: ['tools'],
+        expiration_date: '2098-12-31',
+        ...over,
+      },
+    ],
+  });
+
+  test('a stealth listing is marked temporary, whatever its expiry says', () => {
+    // The trap this exists for: on 2026-08-25 the listing carried
+    // 2098-12-31 — the sentinel for "no end announced" — on a format that
+    // lasts a week or two. The expiry warning can never fire for it.
+    const [m] = OPENROUTER.read(stealth());
+    assert.equal(m?.ephemeral, true);
+    assert.equal(m?.expiresAt, '2098-12-31', 'and the sentinel is still recorded as read');
+  });
+
+  test('its privacy tier is the floor, on evidence rather than by default', () => {
+    // The operator is anonymous and retains the prompts. That is the same
+    // answer as a keyless endpoint: public, and not a human's decision to make
+    // upward without knowing who is on the other end.
+    const [m] = OPENROUTER.read(stealth());
+    assert.equal(m?.maxPrivacy, 'public');
+    assert.match(m?.note ?? '', /anonymous|retained/);
+  });
+
+  test('an ordinary free model is not marked temporary', () => {
+    const [m] = OPENROUTER.read({
+      data: [
+        {
+          id: 'google/gemma-4-31b-it:free',
+          context_length: 262144,
+          architecture: { output_modalities: ['text'] },
+          pricing: { prompt: '0', completion: '0' },
+          supported_parameters: ['tools'],
+        },
+      ],
+    });
+    assert.equal(m?.ephemeral, undefined);
+    assert.equal(m?.maxPrivacy, undefined, 'the file decides, as before');
+  });
+
+  test('sync warns about a temporary listing on every run', () => {
+    const r = syncModels([], [catalogModel({ id: 'stealth/x', ephemeral: true })], TODAY);
+    assert.equal(r.warnings.filter((w) => w.includes('temporary listing')).length, 1);
+  });
+});
+
+describe('pricing conditions are not prices', () => {
+  const withOverride = (window: Record<string, unknown>) => ({
+    data: [
+      {
+        id: 'vendor/m:free',
+        context_length: 1000,
+        architecture: { output_modalities: ['text'] },
+        pricing: { prompt: '0', completion: '0', overrides: [window] },
+        supported_parameters: [],
+      },
+    ],
+  });
+
+  test('a weekday scope does not make a model unreadable', () => {
+    // `utc_days` arrived between 2026-08-22 and 2026-08-25 and threw, because
+    // everything that was not an hour was assumed to be money.
+    const out = OPENROUTER.read(withOverride({ utc_days: ['saturday'], prompt: '0', completion: '0' }));
+    assert.equal(out.length, 1);
+  });
+
+  test('a token threshold is not read as a price', () => {
+    // `min_prompt_tokens: 64` is a condition and a number. Read as money it
+    // marks a free model paid, and the model silently stops being offered.
+    const out = OPENROUTER.read(withOverride({ min_prompt_tokens: 64, prompt: '0', completion: '0' }));
+    assert.equal(out.length, 1, 'still free');
+  });
+
+  test('an unknown key that is a number is still treated as money', () => {
+    // The list is of conditions, not of prices, so a price key nobody has seen
+    // yet counts against free rather than being skipped.
+    assert.deepEqual(OPENROUTER.read(withOverride({ video: '0.004', prompt: '0', completion: '0' })), []);
+  });
+
+  test('an unknown key that is not a number is an error, not an assumption', () => {
+    assert.throws(
+      () => OPENROUTER.read(withOverride({ mystery: { nested: true }, prompt: '0' })),
+      /unreadable mystery/,
+    );
+  });
+});

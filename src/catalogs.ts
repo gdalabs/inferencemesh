@@ -125,6 +125,8 @@ export const REDPILL: CatalogSource = {
       const operators = entry.providers ?? [];
       const maxPrivacy: PrivacyLevel = tee ? 'internal' : 'public';
 
+      const stealth = entry.id.startsWith('stealth/');
+
       out.push({
         id: entry.id,
         ...(entry.name ? { label: entry.name } : {}),
@@ -171,6 +173,20 @@ interface OpenRouterModel {
  * and this decides what goes into a file whose entire promise is that its
  * prices are free.
  */
+/**
+ * Keys inside a pricing override that say *when* it applies, not what it costs.
+ *
+ * Listed rather than inferred, because two of them are numbers: `min_prompt_tokens`
+ * is a threshold, and reading it as money marks a free model paid. The catalog
+ * grew `utc_days` and `min_prompt_tokens` between 2026-08-22 and 2026-08-25 —
+ * three days — so treat this list as a thing that will need adding to.
+ *
+ * Everything not named here is money if it parses as a number and an error if
+ * it does not. That way a *new* price key is caught rather than skipped: being
+ * wrong about "free" is the expensive direction.
+ */
+const PRICING_CONDITION_KEYS = new Set(['utc_start', 'utc_end', 'utc_days', 'min_prompt_tokens']);
+
 function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
   let free = true;
   for (const [field, value] of Object.entries(pricing)) {
@@ -178,8 +194,7 @@ function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
       if (!Array.isArray(value)) throw new Error(`openrouter: ${id} has an unreadable overrides`);
       for (const window of value as Array<Record<string, unknown>>) {
         for (const [k, v] of Object.entries(window)) {
-          // Hours, not money.
-          if (k === 'utc_start' || k === 'utc_end') continue;
+          if (PRICING_CONDITION_KEYS.has(k)) continue;
           const n = num(v);
           if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${k} in overrides`);
           if (n !== 0) free = false;
@@ -187,6 +202,7 @@ function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
       }
       continue;
     }
+    if (PRICING_CONDITION_KEYS.has(field)) continue;
     const n = num(value);
     if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${field} price`);
     if (n !== 0) free = false;
@@ -217,6 +233,23 @@ function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
  * quoting zero per token while charging inside a window is not free, it is
  * free-looking. No zero-priced model carried overrides on 2026-08-22; the
  * check is here because the day one does is the day nobody re-reads this.
+ *
+ * ## Anonymous previews
+ *
+ * The `stealth/` namespace is OpenRouter running an unreleased model without
+ * saying whose it is. Fourteen of those since April 2025, a median of four to
+ * twelve days apiece, and then the id vanishes and the model ships under a
+ * real name — so a generated entry for one is guaranteed rot, and `cmdSync`
+ * refuses to write them into the shipped registry at all.
+ *
+ * They also get `maxPrivacy: 'public'` on evidence rather than on default: the
+ * operator is anonymous and, by OpenRouter's own description, retains the
+ * prompts. "Runs somewhere, kept by someone who will not say who" is the same
+ * answer as a keyless endpoint, and it is the only tier that fits.
+ *
+ * The namespace is the whole detector, which is as much as the catalog gives:
+ * on 2026-08-25 nothing else marked these — not the description, not a flag.
+ * A preview listed under some other prefix would go unnoticed here.
  *
  * ## No privacy evidence
  *
@@ -267,6 +300,8 @@ export const OPENROUTER: CatalogSource = {
       }
       // `code` is never derived here either — no field describes it.
 
+      const stealth = entry.id.startsWith('stealth/');
+
       out.push({
         id: entry.id,
         ...(entry.name ? { label: entry.name } : {}),
@@ -281,7 +316,10 @@ export const OPENROUTER: CatalogSource = {
         // A ':free' suffix is a naming convention, not a price.
         price: { inPerMTok: 0, outPerMTok: 0 },
         ...(entry.expiration_date ? { expiresAt: entry.expiration_date } : {}),
-        note: 'free tier on OpenRouter; upstream operator chosen per request',
+        ...(stealth ? { ephemeral: true, maxPrivacy: 'public' as PrivacyLevel } : {}),
+        note: stealth
+          ? 'anonymous preview: operator undisclosed, prompts retained by them, listing withdrawn within weeks'
+          : 'free tier on OpenRouter; upstream operator chosen per request',
       });
     }
     return out;
