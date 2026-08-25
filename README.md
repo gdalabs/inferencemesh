@@ -1,5 +1,7 @@
 # InferenceMesh
 
+**English · [日本語](README.ja.md) · [한국어](README.ko.md) · [中文](README.zh.md)**
+
 An OpenAI-compatible router that picks an LLM provider **per request** — by cost, capability,
 language, privacy, remaining free quota, and observed health — and fails over when one is down.
 
