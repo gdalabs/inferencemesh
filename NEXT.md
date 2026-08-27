@@ -1,10 +1,7 @@
 # NEXT — inferencemesh
 
-現在地点: origin/main = edfabc8（push済・PRIVATE）。テスト331件 全pass（Node 20 / 22）。
-AFK セッション 2026-08-22 17:10〜23:10。
-
-🔴 **AFK 中の制約**: `OPENROUTER_API_KEY` を使う live probe / sync の実ネットワーク実行は禁止
-（従量課金）。オフラインで完結する作業だけを進める。実測が要る項目は P3 に置いてある。
+現在地点: ローカル main = 279db5a（**未 push**・PRIVATE）。テスト366件 全pass。
+最終セッション 2026-08-27（OrcaRouter 登録・口座単位 quota）。
 
 
 ## Autonomous Session 2026-08-22
@@ -161,3 +158,44 @@ AFK セッション 2026-08-22 17:10〜23:10。
 - ✅ sync のバグ修正: カタログが表現できない能力（`code`）を消さないようにした（同 commit）
 - ✅ `probe --language=<tag>` 実装（commit 517b9ba）。判定器は純粋・オフラインでテスト可能
 - ✅ `openrouter-free/openai/gpt-oss-20b:free` を disabled（無料枠から離脱・404 を probe が検出）
+
+## ✅ 受信箱 消化済み — OrcaRouter（2026-08-27 対応完了）
+
+Root セッション（2026-08-25）からの引き渡しは全て処理した。commit 2df6524 / 6ef92c0 / 279db5a。
+
+**登録したのは3モデル**（`deepseek/deepseek-v4-flash-free` / `qwen/qwen3.8-27b-free` /
+`tencent/hy3-free`）。2026-08-27 に text・tool_calls・json_object を実測し、code は
+生成関数を実際に node で走らせて確認した（tencent だけ finish_reason='length' で判定不能なので
+capabilities に code を入れていない）。
+
+🔴 **`orcarouter/free` は意図的に外した。** 裏側を明かさないルーターで、実測では
+`deepseek-v4-flash` に解決した。どの事業者に渡るかがリクエストごとに変わりうるので、
+capability も context も privacy も記録できない。`stealth/*` を弾くのと同じ理由。
+
+### この作業で出た、引き渡し内容と食い違った実測
+
+- 🔴 **10req/分・50req/日 はモデル単位では書けなかった。** quota のキーが
+  `provider/model` だったので、3モデルに書くと 30req/分 を許す。`ProviderConfig.quota` を
+  新設し、口座単位で予約 → モデル単位で予約 → 内側が拒否したら外側を払い戻す2層にした。
+  実サーバで11発目が `account rpm 10/10` で止まり、**同じ鍵の別モデルも止まる**ことを確認済み
+- 🔴 **カタログは「トークンが無料」と言っていない。** `pricing` は `{"request":"0.000000"}` だけで
+  per-token 価格を持たない。だから `CatalogSource` は足していない（無料判定が機械的にできない）
+- 🔴 **contextWindow は無料枠のリクエスト上限であって、モデルの context 長ではない。**
+  qwen はカタログ上 65536 だが無料枠は約56kで 400。しかも上限はトークンではなく
+  リクエストのサイズで効く（同一テキストで prompt_tokens が 55,803 / 30,339 / 30,268 と
+  割れたまま3件とも通った）。書いたのは ASCII での実測下限で、**日本語ではより早く上限に当たる**
+
+### 残っていること
+
+- **README の 4言語は更新済み**だが、`ProviderConfig.quota` は `providers.example.json` には
+  まだ出てこない
+- OrcaRouter の `maxConcurrent` は未実測（推測で書かない方針のため空のまま）
+- `languages` / `quality` は未評価のまま（`DEFAULT_QUALITY_SCORE` で中立に扱われる）
+
+
+## まだ本人の判断待ち
+
+1. **公開（public 化）の判断** — 監査は通っている
+2. 最初のタグでリリース経路を検証（**一度も走っていない**）
+3. OpenRouter の未登録無料モデル18件を probe して採用（鍵が要る）
+4. 今回の3 commit を push するか
