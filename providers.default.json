@@ -1105,6 +1105,117 @@
           }
         }
       ]
+    },
+    {
+      "id": "orcarouter",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.orcarouter.ai/v1",
+      "apiKeyEnv": "ORCAROUTER_API_KEY",
+      "maxPrivacy": "public",
+      "quota": {
+        "requestsPerMinute": 10,
+        "requestsPerDay": 50
+      },
+      "signupUrl": "https://www.orcarouter.ai/console/keys",
+      "summary": "GitHub ログインだけで使える無料枠。DeepSeek V4 Flash / Qwen3.8 / Tencent Hy3",
+      "freeTierNote": "無料枠あり・クレジットカード不要（GitHub 連携）",
+      "keyPrefix": "sk-",
+      "signupSteps": {
+        "ja": [
+          "www.orcarouter.ai/console/keys を開く",
+          "GitHub アカウントでログイン（無料・クレジットカード不要）",
+          "API キーを作成してコピーする"
+        ],
+        "en": [
+          "Open www.orcarouter.ai/console/keys",
+          "Sign in with GitHub (free, no card)",
+          "Create an API key and copy it"
+        ]
+      },
+      "$comment": [
+        "🔴 quota はプロバイダ単位に置いてある。10 req/分・50 req/日 は *APIキー* の制限で、",
+        "モデルごとではない。3モデルそれぞれに 10 と書くと 30 req/分 を許してしまい、",
+        "返ってくる 429 はただの失敗として別プロバイダにフォールバックするので、",
+        "設定が効いていないことが最後まで表に出ない。",
+        "この値は 2026-08-25 に公表値として引き渡されたもので、こちらでは実測していない。",
+        "",
+        "🔴 maxConcurrent は書いていない（未実測）。推測で書けば実容量を黙って捨てる。",
+        "",
+        "🔴 maxPrivacy: 'public'。ルーターであり、どの事業者が実際に推論して",
+        "プロンプトを保持するのかを観測していない。上げるなら privacyVerifiedAt が要る。",
+        "",
+        "🔴 contextWindow は『無料枠のリクエスト上限』を 2026-08-27 に実測した下限であって、",
+        "モデル本来の context 長ではない。上限を超えると 400 が返り、その本文は",
+        "'This prompt is longer than the free tier allows for a single request.'。",
+        "この repo は 400 を『どこでも同じく失敗する』とみなしてチェーンを止めるので、",
+        "過大申告は minContext 付きの呼び出しをフォールバックごと殺す。過小申告は容量を失うだけ。",
+        "上限はトークンではなくリクエストのサイズで効いている（同一テキストで prompt_tokens が",
+        "qwen 55,803 / deepseek 30,339 / tencent 30,268 と割れたまま3件とも通った）ため、",
+        "実効トークン数はトークナイザ依存で、ここに書いた値は ASCII での実測下限。",
+        "日本語など1文字あたりのバイト数が大きい入力では、より少ないトークン数で上限に当たる。",
+        "",
+        "🔴 カタログの pricing は {\"request\": \"0.000000\"} だけで、per-token 価格を持たない。",
+        "つまり『トークンが無料』はカタログのどこにも書かれていない。価格 0 の根拠は",
+        "公表されている無料枠の条件と実測であって、カタログではない。CatalogSource を",
+        "足していないのはこのため — 無料かどうかを機械的に判定できない。",
+        "",
+        "🔴 'orcarouter/free' は意図的に入れていない。裏側を明かさないルーターで、",
+        "2026-08-27 の実測では deepseek-v4-flash に解決した。どの事業者に渡るかが",
+        "リクエストごとに変わりうるので、capability も context も privacy も記録できない。",
+        "stealth/* を弾くのと同じ理由。",
+        "",
+        "2026-08-27 に deepseek が一度 'upstream_unavailable' を返した。恒常的な故障ではないが、",
+        "無料枠の上流は落ちる前提でフォールバック先を残しておくこと。"
+      ],
+      "models": [
+        {
+          "id": "deepseek/deepseek-v4-flash-free",
+          "label": "DeepSeek V4 Flash (OrcaRouter free)",
+          "$comment": "2026-08-27 実測: 応答・tool_calls・json_object を確認。code は生成物を実際に node で実行して正しい出力を確認した。contextWindow は無料枠のリクエスト上限の実測下限（prompt 30,339 tokens が通った）",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 30000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          }
+        },
+        {
+          "id": "qwen/qwen3.8-27b-free",
+          "label": "Qwen3.8 27B (OrcaRouter free)",
+          "$comment": "2026-08-27 実測: 応答・tool_calls・json_object を確認。code も node で実行して確認。カタログは context_length 65536 と言うが、無料枠のリクエスト上限はそれより手前にある（prompt 55,803 tokens が通り、約59,900 で 400）",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 55000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          }
+        },
+        {
+          "id": "tencent/hy3-free",
+          "label": "Tencent Hy3 (OrcaRouter free)",
+          "$comment": "2026-08-27 実測: 応答・tool_calls・json_object を確認。code は *判定不能* — max_tokens 700 で finish_reason='length' になり、思考を英語で書いている途中で切れた。切れた応答は証拠にならないので capabilities に code は入れていない",
+          "capabilities": [
+            "text",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 30000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          }
+        }
+      ]
     }
   ]
 }

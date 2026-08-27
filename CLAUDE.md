@@ -134,6 +134,24 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   the `maxConcurrent` guess in another costume: it invents a per-model limit the
   provider never stated. The account layer is reserved first and refunded with
   the model's, so the two cannot disagree about whether a request happened.
+- 🔴 **A free tier's request cap is not the model's context window.**
+  OrcaRouter 400s with "longer than the free tier allows for a single request"
+  well below the catalog's own `context_length` — qwen advertises 65536 and the
+  free tier stops around 56k. Since **400 stops the chain**, an over-declared
+  `contextWindow` does not merely pick a bad candidate: it kills the fallback
+  for every caller that passed `minContext`. Under-declaring only loses
+  capacity, so ship a measured floor. The cap is enforced on request *size*,
+  not tokens — identical text billed 55,803 / 30,339 / 30,268 prompt tokens
+  across three models and all three were admitted — so the token-denominated
+  limit is tokenizer-dependent, and a floor measured with ASCII is not a floor
+  for Japanese.
+- 🔴 **`pricing.request` is not a per-token price.** OrcaRouter's catalog offers
+  `{"request": "0.000000"}` and nothing else: no `prompt`, no `completion`. That
+  says a request costs no flat fee, not that tokens are free. It is why
+  OrcaRouter has no `CatalogSource` — a catalog that cannot establish free-ness
+  cannot be allowed to generate free entries — and why the `0` in its models
+  cites the published free-tier terms and a probe, never the catalog.
+
 ## Design decisions worth reading before changing
 
 - **Hard constraints filter, soft preferences weight.** Privacy, capability and
