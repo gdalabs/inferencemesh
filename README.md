@@ -286,6 +286,20 @@ counting the window alone cannot see it.
 It is scoped to the provider, not the model: the limit belongs to the credential, so two models
 behind one key share the account's slots.
 
+`quota` can sit in the same place, for the same reason. A tier that publishes "10 requests a
+minute" almost always means the key, not each model — put that figure on three models and you
+have admitted thirty, and the 429 that follows looks like any other failure, so the mesh quietly
+falls over to the next provider and the mistake never surfaces. Write it once on the provider and
+it is reserved before the model's own budget and refunded with it.
+
+```jsonc
+{ "id": "orcarouter", "quota": { "requestsPerMinute": 10, "requestsPerDay": 50 } }
+```
+
+Splitting the account's ten between its models — three each — is the guess `maxConcurrent`
+refuses to make: it invents a per-model limit the provider never stated, and throttles real
+capacity the moment traffic is uneven.
+
 A busy provider is skipped, not waited for — falling over to a free one is what the chain is for.
 Only when **every** candidate is busy does the request queue, FIFO, for up to
 `INFERENCEMESH_CONCURRENCY_WAIT_MS` (default 30000; set `0` to fail instead). That is the
