@@ -1,6 +1,7 @@
 # NEXT — inferencemesh
 
-現在地点: ローカル main = 279db5a（**未 push**・PRIVATE）。テスト366件 全pass。
+現在地点: ローカル main = 83088a5（**未 push 5本**・PRIVATE）。テスト366件 全pass。
+バンドル・単一バイナリ・コンテナの3形態で起動確認済み（コンテナからの実推論も通した）。
 最終セッション 2026-08-27（OrcaRouter 登録・口座単位 quota）。
 
 
@@ -185,12 +186,26 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
   リクエストのサイズで効く（同一テキストで prompt_tokens が 55,803 / 30,339 / 30,268 と
   割れたまま3件とも通った）。書いたのは ASCII での実測下限で、**日本語ではより早く上限に当たる**
 
-### 残っていること
+### 後始末（2026-08-27・commit 83088a5 で完了）
 
-- **README の 4言語は更新済み**だが、`ProviderConfig.quota` は `providers.example.json` には
-  まだ出てこない
-- OrcaRouter の `maxConcurrent` は未実測（推測で書かない方針のため空のまま）
+- ✅ `providers.example.json` に2層の quota を両方載せた。旧コメントは
+  「the per-minute quota **below**」と書きながら、そのファイルに quota が1つも無かった
+- ✅ ROADMAP: OrcaRouter を同時実行測定の「鍵は要るが完全無料」という第3のケースとして追記。
+  リクエストサイズ上限の表現方法を Now に新項目として追加
+- 🔴 ✅ **コンテナが昨日から自分のテストに落ちていた。** README を4言語化した時点
+  （commit 6c05344）から Dockerfile が `README.md` しかコピーしておらず、翻訳テスト5件が
+  ENOENT。**その間に誰もイメージを建てなかったので気づかれなかった**。glob に変更して修正。
+  Dockerfile のコメントには**同じ見落としが過去2回**記録されていた（今回が3回目）
+- ✅ 3モデルとも思考型で、小さい `max_tokens` だと `content: null` /
+  `finish_reason: 'length'` が返ることをレジストリに記録
+
+### まだ残っていること
+
+- OrcaRouter の `maxConcurrent` は未実測（推測で書かない方針のため空のまま）。
+  **完全無料なので他社の枠を使わずに測れる唯一の対象**だが、50req/日 なので測る日は他をやらない
 - `languages` / `quality` は未評価のまま（`DEFAULT_QUALITY_SCORE` で中立に扱われる）
+- 🔴 `contextWindow` に書いたのは **ASCII での実測下限**。日本語ではより早く上限に当たる。
+  リクエストサイズ上限を表現する方法自体が未設計（ROADMAP の Now）
 
 
 ## まだ本人の判断待ち
@@ -198,4 +213,4 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 1. **公開（public 化）の判断** — 監査は通っている
 2. 最初のタグでリリース経路を検証（**一度も走っていない**）
 3. OpenRouter の未登録無料モデル18件を probe して採用（鍵が要る）
-4. 今回の3 commit を push するか
+4. 未 push の5 commit を push するか
