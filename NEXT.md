@@ -1,8 +1,12 @@
 # NEXT — inferencemesh
 
-現在地点: ローカル main = 83088a5（**未 push 5本**・PRIVATE）。テスト366件 全pass。
+現在地点: ローカル main = origin/main = edfcce8（**未 push なし**・PRIVATE）。テスト366件 全pass。
 バンドル・単一バイナリ・コンテナの3形態で起動確認済み（コンテナからの実推論も通した）。
-最終セッション 2026-08-27（OrcaRouter 登録・口座単位 quota）。
+最終セッション 2026-08-27（OrcaRouter 登録・口座単位 quota → push・CI green）。
+
+- 2026-08-27: 溜まっていた6本を push。CI（Node 20 / Node 22 / bundle smoke）は3ジョブとも green。
+  🔴 CI に警告が出ている: `actions/checkout@v4` と `actions/setup-node@v4` は Node 20 ランタイムで、
+  GitHub 側が Node 24 に強制昇格させている。**今は動いているが、v5 に上げるまで警告は消えない**
 
 
 ## Autonomous Session 2026-08-22
