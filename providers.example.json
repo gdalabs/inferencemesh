@@ -29,11 +29,15 @@
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKeyEnv": "DEEPSEEK_API_KEY",
       "maxPrivacy": "internal",
-      "$comment2": "maxConcurrent is how many requests this account serves at once, which is a different limit from the per-minute quota below and is the one a fan-out hits first. Omit it for unlimited; do not guess a number.",
+      "$comment2": "maxConcurrent counts the requests in flight right now; quota counts them over a window. A fan-out hits maxConcurrent first, with the per-minute budget barely touched. Omit it for unlimited; do not guess a number.",
       "maxConcurrent": 4,
+      "$comment3": "Scope matters more than the figure. A limit published for the API key belongs here, on the provider, and every model behind that key shares it — write it on each model instead and three models admit three times the account's budget, while the 429 that follows looks like any other failure. Both numbers here are placeholders: replace them with limits you have read in the provider's own documentation.",
+      "quota": { "requestsPerMinute": 10, "requestsPerDay": 200 },
       "models": [
         {
           "id": "deepseek-chat",
+          "$comment": "A quota here is this model's alone, and sits inside the account's: it is the shape for a preview or a promotional model that is capped more tightly than the key that reaches it. Placeholder, like the rest.",
+          "quota": { "requestsPerDay": 50 },
           "capabilities": ["text", "code", "tools", "json"],
           "contextWindow": 131072,
           "price": { "inPerMTok": 0, "outPerMTok": 0 },

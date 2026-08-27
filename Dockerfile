@@ -35,7 +35,12 @@ COPY examples ./examples
 # it checks that every provider variable is passed into the container and that
 # the installer's settings are documented. Both tests are about this package
 # being coherent, which is what this build is producing.
-COPY providers.default.json providers.example.json README.md LICENSE docker-compose.yml install.sh ./
+# README.??.md is a glob on purpose: the translations are read by the test
+# that checks all four stay in step, and naming them one by one is how the
+# image came to fail its own suite the day a fourth language was added. It
+# matches a two-letter language code and nothing else, so a fifth language
+# needs no edit here while a README-draft.md still cannot ride along.
+COPY providers.default.json providers.example.json README.md README.??.md LICENSE docker-compose.yml install.sh ./
 RUN npx tsc -p tsconfig.json
 
 # The test suite needs no network, so it runs at build time. An image that
@@ -64,7 +69,7 @@ ENV INFERENCEMESH_ALLOW_ANY_HOST=1
 
 COPY --from=build /app/dist ./dist
 # The licence travels with the image; it is MIT software being redistributed.
-COPY package.json providers.default.json providers.example.json LICENSE README.md ./
+COPY package.json providers.default.json providers.example.json LICENSE README.md README.??.md ./
 COPY scripts ./scripts
 # No `npm install` here on purpose: the package has zero runtime dependencies,
 # so the runtime image contains the compiled output and nothing else. There is

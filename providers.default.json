@@ -1165,7 +1165,11 @@
         "stealth/* を弾くのと同じ理由。",
         "",
         "2026-08-27 に deepseek が一度 'upstream_unavailable' を返した。恒常的な故障ではないが、",
-        "無料枠の上流は落ちる前提でフォールバック先を残しておくこと。"
+        "無料枠の上流は落ちる前提でフォールバック先を残しておくこと。",
+        "",
+        "🔴 3モデルとも思考型で、小さい max_tokens だと本文に到達せず content: null が返る。",
+        "2026-08-27 実測: qwen に max_tokens=8 を渡すと reasoning だけで予算を使い切り、",
+        "content=null / finish_reason='length'。64 なら 'OK' が返る。ルータのバグに見えるが上流の応答。"
       ],
       "models": [
         {

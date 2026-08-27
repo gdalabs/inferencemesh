@@ -9,11 +9,32 @@
   three times, one 200 and one 429 every time, and recorded in the registry
   with the date. It cost nothing to find because that provider is keyless.
 
+  OrcaRouter added a third case on 2026-08-27: it needs a key, but its three
+  registered models are free, so measuring it spends nobody else's allowance.
+  Its `maxConcurrent` is still absent because no limit has been observed. The
+  account is capped at **50 requests per day**, which is enough for a careful
+  measurement and not enough to finish one in an afternoon that has already
+  spent some of it.
+
   The rest still need their own measurement, and each one spends the free tier
   of whoever runs it, so it is a deliberate step rather than something a
   scheduled job should do. The method is the one above: climb until 429s arrive
   in a burst rather than at a steady rate, and never write a number that was
   not observed — an invented limit throttles real capacity and nothing errors.
+- **Represent a free tier's request-size limit without pretending it is a
+  context window.** OrcaRouter showed on 2026-08-27 that a free tier can reject
+  a request with `400` well before the model's catalogued `context_length`, and
+  that the limit is applied to the size of the request rather than to any
+  token count. The same admitted text was reported as **55,803**, **30,339**
+  and **30,268** prompt tokens by three models behind one key, so no single
+  token-denominated ceiling describes the boundary. The registry records an
+  ASCII measurement as a conservative `contextWindow`, which is not a floor for
+  Japanese — the same tokens carry more bytes and reach the limit sooner. This
+  is in Now because **`400` stops the chain**: an over-declared value does not
+  merely pick a worse candidate, it ends a request another provider could have
+  served. Until the limit has a representation and a routing rule of its own,
+  do not replace the observed floor with the catalog's number and do not guess
+  a Japanese equivalent.
 - **Language evidence in the registry.** `probe --language=<tag>` now measures
   whether a model answers in the language it was asked in, and reports that
   against what `languages` claims (2026-08-22). What it does not do is write
