@@ -6,6 +6,7 @@ import { InferenceMesh, estimateTokens, parseModel } from '../src/mesh.js';
 import { QuotaLedger, MemoryStorage } from '../src/ledger.js';
 import { HealthTracker } from '../src/health.js';
 import { MeshError, NoCandidateError } from '../src/types.js';
+import type { ProviderConfig, Quota } from '../src/types.js';
 import {
   FIXTURE_ENV,
   errorResponse,
@@ -335,18 +336,19 @@ describe('mesh — exploration', () => {
   });
 });
 
+const sse = (lines: string[]): Response =>
+  new Response(
+    new ReadableStream<Uint8Array>({
+      start(c) {
+        const enc = new TextEncoder();
+        for (const l of lines) c.enqueue(enc.encode(l));
+        c.close();
+      },
+    }),
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  );
+
 describe('mesh — streaming', () => {
-  const sse = (lines: string[]) =>
-    new Response(
-      new ReadableStream<Uint8Array>({
-        start(c) {
-          const enc = new TextEncoder();
-          for (const l of lines) c.enqueue(enc.encode(l));
-          c.close();
-        },
-      }),
-      { status: 200, headers: { 'content-type': 'text/event-stream' } },
-    );
 
   test('an OpenAI-shaped stream passes through unchanged', async () => {
     const { m } = mesh(() =>
@@ -398,5 +400,164 @@ describe('mesh — streaming', () => {
     const snap = await m.ledger.snapshot();
     assert.equal(snap['paid/paid-pro']?.dayTokens, 10);
     assert.ok(trace.cost_usd > 0);
+  });
+});
+
+describe('mesh — an account-wide quota', () => {
+  /**
+   * One credential, two models. The shape that made this necessary: OrcaRouter
+   * publishes 10 requests a minute for the *key*, and writing that on each of
+   * its three free models would have admitted thirty.
+   */
+  function sharedCredential(quota: Quota): ProviderConfig[] {
+    return [
+      {
+        id: 'shared',
+        kind: 'openai-compat',
+        baseUrl: 'https://shared.test/v1',
+        apiKeyEnv: 'ALPHA_KEY',
+        maxPrivacy: 'internal',
+        quota,
+        models: [
+          {
+            id: 'one',
+            capabilities: ['text'],
+            contextWindow: 8000,
+            price: { inPerMTok: 0, outPerMTok: 0 },
+            quality: 0.9,
+            // Its own window as well, so the two layers can be told apart.
+            quota: { requestsPerMinute: 1 },
+          },
+          {
+            id: 'two',
+            capabilities: ['text'],
+            contextWindow: 8000,
+            price: { inPerMTok: 0, outPerMTok: 0 },
+            quality: 0.8,
+          },
+        ],
+      },
+    ];
+  }
+
+  function sharedMesh(quota: Quota, responder: Parameters<typeof fakeFetch>[0]) {
+    const clock = fakeClock();
+    const { fetch, calls } = fakeFetch(responder);
+    const m = new InferenceMesh({
+      registry: new Registry(sharedCredential(quota), { env: FIXTURE_ENV }),
+      fetchImpl: fetch,
+      ledger: new QuotaLedger(new MemoryStorage(), clock.now),
+      health: new HealthTracker({}, clock.now),
+    });
+    return { m, calls, clock };
+  }
+
+  const ask = (model: string) => ({
+    model,
+    messages: [{ role: 'user' as const, content: 'x' }],
+  });
+
+  test('a second model on the same key cannot spend the budget twice', async () => {
+    const { m, calls } = sharedMesh({ requestsPerMinute: 1 }, () => okChat('hi'));
+
+    await m.chat(ask('shared/one'));
+    // Per-model accounting would see 'shared/two' as untouched and let it
+    // through, turning a 10/min key into 10/min *per model*.
+    await assert.rejects(
+      () => m.chat(ask('shared/two')),
+      (err: unknown) => {
+        assert.ok(err instanceof MeshError);
+        assert.ok(
+          JSON.stringify(err.detail).includes('account rpm 1/1'),
+          'the refusal names the account, not the model',
+        );
+        return true;
+      },
+    );
+    assert.equal(calls.length, 1, 'the second model never reached the network');
+  });
+
+  test('a model-level refusal hands the account reservation back', async () => {
+    // One request left on the key. The first model is out of its own minute,
+    // so it must not consume the key's last slot on its way to being refused —
+    // asserting the counter is zero would pass even if the account layer were
+    // never reserved at all, so this spends the budget for real and checks the
+    // next model can still get through.
+    const { m, calls } = sharedMesh({ requestsPerMinute: 1 }, () => okChat('hi'));
+    await m.ledger.admit('shared/one', { requestsPerMinute: 1 });
+
+    await assert.rejects(() => m.chat(ask('shared/one')));
+    const res = await m.chat(ask('shared/two'));
+
+    assert.equal(res.mesh?.served_by, 'shared/two', 'the key still had its request');
+    assert.equal(calls.length, 1);
+  });
+
+  test('a failed attempt refunds both layers, not just the model', async () => {
+    const { m } = sharedMesh({ requestsPerMinute: 5 }, () => errorResponse(500, 'boom'));
+    await assert.rejects(() => m.chat(ask('shared/one')));
+
+    const snap = await m.ledger.snapshot();
+    assert.equal(snap['shared/one']?.dayRequests, 0, 'the model reservation came back');
+    assert.equal(snap['shared']?.dayRequests, 0, 'the account reservation came back too');
+  });
+
+  test('tokens are booked against the account, not only the model', async () => {
+    const { m } = sharedMesh({ tokensPerDay: 1_000 }, () =>
+      okChat('hi', { prompt: 40, completion: 10 }),
+    );
+    await m.chat(ask('shared/one'));
+
+    const snap = await m.ledger.snapshot();
+    assert.equal(snap['shared/one']?.dayTokens, 50);
+    assert.equal(snap['shared']?.dayTokens, 50, 'a per-key tokensPerDay would sit at zero forever');
+  });
+
+  test('falling over to a sibling model does not get a second helping', async () => {
+    // No pin here: the router picks freely among the key's models. Without an
+    // account layer, 'two' looks untouched and serves the eleventh request.
+    const { m, calls } = sharedMesh({ requestsPerMinute: 1 }, () => okChat('hi'));
+    const first = await m.chat(ask('shared/one'));
+    assert.equal(first.mesh?.served_by, 'shared/one');
+
+    await assert.rejects(
+      () => m.chat({ model: 'mesh/free', messages: [{ role: 'user', content: 'x' }] }),
+      (err: unknown) => {
+        assert.ok(err instanceof MeshError);
+        const detail = JSON.stringify(err.detail);
+        assert.ok(detail.includes('shared/two'), 'the sibling was considered');
+        assert.ok(detail.includes('account rpm 1/1'), 'and refused on the account, not tried');
+        return true;
+      },
+    );
+    assert.equal(calls.length, 1, 'the sibling never reached the network');
+  });
+
+  test('a stream books its tokens against the account too', async () => {
+    const { m } = sharedMesh({ tokensPerDay: 1_000 }, () =>
+      sse([
+        'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}}\n\n',
+        'data: [DONE]\n\n',
+      ]),
+    );
+    const { stream } = await m.stream({
+      model: 'shared/one',
+      messages: [{ role: 'user', content: 'x' }],
+      stream: true,
+    });
+    await readAll(stream);
+
+    const snap = await m.ledger.snapshot();
+    assert.equal(snap['shared/one']?.dayTokens, 10);
+    assert.equal(snap['shared']?.dayTokens, 10, 'the streaming path has two layers as well');
+  });
+
+  test('a provider with no account quota books nothing extra', async () => {
+    const { m } = mesh(() => okChat('hi'));
+    await m.chat({ model: 'beta/beta-free', messages: [{ role: 'user', content: 'x' }] });
+
+    const snap = await m.ledger.snapshot();
+    assert.equal(snap['beta'], undefined, 'no phantom account row for an unlimited provider');
   });
 });

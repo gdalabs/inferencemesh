@@ -20,6 +20,7 @@ import {
   type ChatRequest,
   type ChatResponse,
   type MeshTrace,
+  type Quota,
   type RouteDecision,
   type RouteRequest,
   type ScoredCandidate,
@@ -330,17 +331,45 @@ export class InferenceMesh {
     const { attempts } = ctx;
     let handedOff = false;
 
+    // Two layers of window budget, reserved outermost first: the credential's
+    // own, then this model's. Everything reserved is tracked so a rejection at
+    // the inner layer gives the outer one back — a provider budget that is
+    // spent by a request the model layer refused would drift down all day
+    // without a single error to show for it.
+    const reserved: string[] = [];
+    const giveBack = async (): Promise<void> => {
+      while (reserved.length > 0) await this.ledger.refund(reserved.pop() as string);
+    };
+
     try {
+      const providerQuota = candidate.provider.quota;
+      if (providerQuota) {
+        const admittedProvider = await this.ledger.admit(
+          candidate.provider.id,
+          providerQuota,
+          ctx.estimated,
+        );
+        if (!admittedProvider.ok) {
+          const reason = `account ${admittedProvider.reason}`;
+          attempts.push({ key, error: `quota: ${reason}`, ms: 0 });
+          this.onEvent({ type: 'attempt', key, error: reason });
+          return undefined;
+        }
+        reserved.push(candidate.provider.id);
+      }
+
       const admitted = await this.ledger.admit(key, candidate.model.quota, ctx.estimated);
       if (!admitted.ok) {
+        await giveBack();
         attempts.push({ key, error: `quota: ${admitted.reason}`, ms: 0 });
         this.onEvent({ type: 'attempt', key, error: admitted.reason ?? 'quota' });
         return undefined;
       }
+      reserved.push(key);
 
       const adapter = this.adapters[candidate.provider.kind];
       if (!adapter) {
-        await this.ledger.refund(key);
+        await giveBack();
         attempts.push({ key, error: `no adapter for kind '${candidate.provider.kind}'`, ms: 0 });
         return undefined;
       }
@@ -396,7 +425,15 @@ export class InferenceMesh {
         const cost = usage
           ? costOf(candidate.model, usage.prompt_tokens, usage.completion_tokens)
           : 0;
-        if (usage) await this.ledger.record(key, usage.total_tokens);
+        if (usage) {
+          await this.ledger.record(key, usage.total_tokens);
+          // The account's daily token cap counts the same tokens the model's
+          // does; booking only one of them lets a tokensPerDay on the provider
+          // sit at zero forever.
+          if (candidate.provider.quota) {
+            await this.ledger.record(candidate.provider.id, usage.total_tokens);
+          }
+        }
         await this.ledger.flush();
         this.onEvent({ type: 'success', key, ms, costUsd: cost, ...(usage ? { usage } : {}) });
         return {
@@ -412,7 +449,7 @@ export class InferenceMesh {
       } catch (err) {
         attempt.detach();
         const ms = Date.now() - t0;
-        await this.ledger.refund(key);
+        await giveBack();
         const pe = err instanceof ProviderError ? err : undefined;
         this.health.failure(key, pe?.retryAfterMs);
         const message = err instanceof Error ? err.message : String(err);
@@ -440,7 +477,11 @@ export class InferenceMesh {
    */
   private meter(
     stream: ReadableStream<Uint8Array>,
-    candidate: { key: string; model: { price: { inPerMTok: number; outPerMTok: number } } },
+    candidate: {
+      key: string;
+      model: { price: { inPerMTok: number; outPerMTok: number } };
+      provider: { id: string; quota?: Quota };
+    },
     trace: MeshTrace,
     done: () => void,
   ): ReadableStream<Uint8Array> {
@@ -473,6 +514,11 @@ export class InferenceMesh {
         if (usage) {
           trace.cost_usd = costOf(model, usage.prompt_tokens, usage.completion_tokens);
           await ledger.record(candidate.key, usage.total_tokens);
+          // Same two layers as the non-streaming path; a stream's tokens count
+          // against the account's daily cap too.
+          if (candidate.provider.quota) {
+            await ledger.record(candidate.provider.id, usage.total_tokens);
+          }
         }
         await ledger.flush();
         onEvent({

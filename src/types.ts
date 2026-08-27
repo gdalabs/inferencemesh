@@ -216,6 +216,26 @@ export interface ProviderConfig {
    * observed would throttle real capacity on a guess.
    */
   maxConcurrent?: number;
+  /**
+   * Window limits the whole credential shares, across every model behind it.
+   *
+   * The account-wide twin of `ModelEntry.quota`, and for the same reason
+   * `maxConcurrent` already lives here: the limit belongs to the credential,
+   * not the model. A provider allowing 10 requests a minute allows 10 in
+   * total, not 10 per model — writing that figure on each of three models
+   * admits thirty, and the 429 that follows looks like an ordinary failure
+   * and falls over to the next provider, so the mis-set budget never surfaces.
+   *
+   * Dividing the account's budget between its models instead is the same
+   * guess `maxConcurrent` refuses to make: it invents a per-model limit the
+   * provider never stated and throttles real capacity when traffic is uneven.
+   *
+   * Reserved before the model's own quota and refunded with it, so the two
+   * layers cannot disagree about whether a request happened.
+   *
+   * Absent means the provider publishes no account-wide window.
+   */
+  quota?: Quota;
   models: ModelEntry[];
   disabled?: boolean;
 }

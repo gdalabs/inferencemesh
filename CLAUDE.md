@@ -123,7 +123,17 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
 - 🔴 **`Number(env['X'] ?? default)` is a bug, not a shorthand.** A var that is
   set but empty — which is what `FOO=` in a `.env` produces — parses as 0, so a
   blank line silently means port 0 and "never queue". Use `intFromEnv`.
-
+- 🔴 **A window limit that belongs to the key goes on the provider, not on each
+  model.** `ProviderConfig.quota` is the account-wide twin of
+  `ModelEntry.quota`, for the reason `maxConcurrent` was already scoped that
+  way: the limit belongs to the credential. OrcaRouter publishes 10 requests a
+  minute for the key; writing that on each of its three free models admits
+  thirty, and the 429 that follows is indistinguishable from any other failure
+  — the mesh falls over to the next provider and the mis-set budget never
+  surfaces. Splitting the account's budget between its models instead (10/3) is
+  the `maxConcurrent` guess in another costume: it invents a per-model limit the
+  provider never stated. The account layer is reserved first and refunded with
+  the model's, so the two cannot disagree about whether a request happened.
 ## Design decisions worth reading before changing
 
 - **Hard constraints filter, soft preferences weight.** Privacy, capability and
