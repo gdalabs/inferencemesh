@@ -17,6 +17,119 @@
   "verifiedAt": "2026-08-16",
   "providers": [
     {
+      "id": "nous",
+      "kind": "openai-compat",
+      "baseUrl": "https://inference-api.nousresearch.com/v1",
+      "apiKeyEnv": "NOUS_API_KEY",
+      "maxPrivacy": "public",
+      "signupUrl": "https://portal.nousresearch.com/",
+      "summary": "Nous Portal の無料モデル。カタログ確認済み、推論は未検証",
+      "freeTierNote": "価格ゼロの5モデルを掲載。APIキー未取得のため全モデル disabled。キー投入後に `inferencemesh probe` を実行し、成功したものだけ disabled を外す",
+      "signupSteps": {
+        "ja": [
+          "portal.nousresearch.com を開く",
+          "アカウントを作成してログインする",
+          "「Create API Key」を押す",
+          "表示されたキーをその場でコピーして NOUS_API_KEY に設定する"
+        ],
+        "en": [
+          "Open portal.nousresearch.com",
+          "Create an account and sign in",
+          "Press \"Create API Key\"",
+          "Copy the key shown and set NOUS_API_KEY"
+        ]
+      },
+      "$comment": [
+        "The public catalog was checked on 2026-08-28, but no API key was available",
+        "and none of these ids has been probed. They are kept as disabled candidates",
+        "so catalog discovery is not mistaken for inference evidence.",
+        "Do not remove `disabled` until `inferencemesh probe` succeeds.",
+        "`tencent/hy3:free` is intentionally absent: non-zero pricing overrides cover",
+        "the full day even though its top-level prompt/completion prices are zero."
+      ],
+      "models": [
+        {
+          "id": "poolside/laguna-s-2.1:free",
+          "label": "Laguna S 2.1 (Nous free, unprobed)",
+          "capabilities": [
+            "text",
+            "tools"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "disabled": true,
+          "note": "Catalog checked 2026-08-28; inference not probed"
+        },
+        {
+          "id": "poolside/laguna-xs-2.1:free",
+          "label": "Laguna XS 2.1 (Nous free, unprobed)",
+          "capabilities": [
+            "text",
+            "tools"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "disabled": true,
+          "note": "Catalog checked 2026-08-28; inference not probed"
+        },
+        {
+          "id": "stepfun/step-3.7-flash:free",
+          "label": "Step 3.7 Flash (Nous free, unprobed)",
+          "capabilities": [
+            "text",
+            "vision",
+            "video",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "disabled": true,
+          "note": "Catalog checked 2026-08-28; inference not probed"
+        },
+        {
+          "id": "upstage/solar-pro4:free",
+          "label": "Solar Pro 4 (Nous free, unprobed)",
+          "capabilities": [
+            "text",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 524288,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "disabled": true,
+          "note": "Catalog checked 2026-08-28; inference not probed"
+        },
+        {
+          "id": "meituan/longcat-2.0:free",
+          "label": "LongCat 2.0 (Nous free, unprobed)",
+          "capabilities": [
+            "text",
+            "tools"
+          ],
+          "contextWindow": 1048576,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "disabled": true,
+          "note": "Catalog checked 2026-08-28; inference not probed"
+        }
+      ]
+    },
+    {
       "id": "groq",
       "kind": "openai-compat",
       "baseUrl": "https://api.groq.com/openai/v1",

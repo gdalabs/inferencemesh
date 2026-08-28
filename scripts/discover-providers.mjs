@@ -21,6 +21,11 @@
  *                   ("deprecated, switch to the Agent Tools API") on 2026-08-16.
  *   Reddit        — r/LocalLLaMA is the best-signal forum for this, but
  *                   reddit.com returns 403 to this host's IP without OAuth.
+ *   Empero        — https://free.empero.org/v1 was under maintenance on
+ *                   2026-08-28 (migrating its free endpoint from GLM 5.3 Flash
+ *                   to Qwen3.8-Flash-Next); authentication and model ids are
+ *                   unconfirmed. Re-check here after maintenance, and add it to
+ *                   CATALOGS only once a model endpoint returns a usable list.
  *
  * Findings are candidates, not conclusions. A provider that appears here still
  * has to survive `inferencemesh probe` before it earns a registry entry.
@@ -40,6 +45,7 @@ const FAMILIES = ['deepseek', 'kimi', 'moonshot', 'minimax', 'glm', 'z-ai', 'zai
 /** Public model catalogs. Verified keyless on 2026-08-16. */
 const CATALOGS = [
   { id: 'openrouter', url: 'https://openrouter.ai/api/v1/models', freeOnly: true },
+  { id: 'nous', url: 'https://inference-api.nousresearch.com/v1/models', freeOnly: true },
   { id: 'nvidia', url: 'https://integrate.api.nvidia.com/v1/models' },
   { id: 'chutes', url: 'https://llm.chutes.ai/v1/models' },
   { id: 'llm7', url: 'https://api.llm7.io/v1/models' },
