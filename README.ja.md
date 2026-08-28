@@ -357,15 +357,18 @@ inferencemesh route free --min-context=200000
 ```sh
 inferencemesh sync --provider=redpill    --out=providers.local.json --dry-run
 inferencemesh sync --provider=openrouter --out=providers.local.json --dry-run
+inferencemesh sync --provider=nous       --out=providers.local.json --dry-run
 ```
 
-OpenRouter のカタログは**鍵不要**です。誰のクレジットも使わずに更新できる唯一の経路です。
-無料枠だけを読みます（2026-08-22 時点で 421 モデル中 22 が価格ゼロ）。
+OpenRouter と Nous Portal のカタログは**鍵不要**です。誰のクレジットも使わずに更新できる
+2つの経路です。どちらも無料枠だけを読みます（OpenRouter は 2026-08-22 時点で 421 モデル中
+22 が価格ゼロ。Nous は 2026-08-28 時点で 371 モデル中 5 が全ての階層でゼロ）。
 
 「無料」とは**公開されている価格が全てゼロ**という意味で、トークン単価だけではありません。
 pricing には `web_search` や `image`、キャッシュ系のキー、そして本当に人を引っかけるのは
 `overrides` — 時間帯ごとの価格の窓 — も入っています。トークン単価がゼロでも 06:00〜24:00 UTC は
-課金する、というモデルは無料ではなく、**無料に見えるだけ**です。
+課金する、というモデルは無料ではなく、**無料に見えるだけ**です。これは仮定の話ではなくなりました。
+2026-08-28 に `tencent/hy3:free` が、top-level はゼロのまま2つの窓で1日を覆う形で現れています。
 
 ### 匿名プレビューはレジストリに入れるものではない
 

@@ -324,15 +324,19 @@ inferencemesh route free --min-context=200000
 ```sh
 inferencemesh sync --provider=redpill    --out=providers.local.json --dry-run
 inferencemesh sync --provider=openrouter --out=providers.local.json --dry-run
+inferencemesh sync --provider=nous       --out=providers.local.json --dry-run
 ```
 
-OpenRouter의 카탈로그는 **키가 필요 없습니다.** 누구의 크레딧도 쓰지 않고 갱신할 수 있는
-유일한 경로입니다. 무료 한도만 읽습니다(2026-08-22 기준 421개 중 22개가 가격 0).
+OpenRouter와 Nous Portal의 카탈로그는 **키가 필요 없습니다.** 누구의 크레딧도 쓰지 않고
+갱신할 수 있는 두 경로입니다. 둘 다 무료 한도만 읽습니다(OpenRouter는 2026-08-22 기준
+421개 중 22개가 가격 0, Nous는 2026-08-28 기준 371개 중 5개가 모든 층에서 0).
 
 "무료"란 **공개된 가격이 전부 0**이라는 뜻이지 토큰 단가만이 아닙니다. pricing에는
 `web_search`·`image`·캐시 관련 키, 그리고 정말로 사람을 걸려 넘어지게 하는 `overrides` —
 시간대별 가격 창 — 도 들어 있습니다. 토큰 단가가 0이면서 06:00~24:00 UTC에는 과금하는
-모델은 무료가 아니라 **무료처럼 보이는 것**입니다.
+모델은 무료가 아니라 **무료처럼 보이는 것**입니다. 2026-08-28 이것은 더 이상 가정이
+아니게 되었습니다. `tencent/hy3:free`가 최상위에서는 0을 내걸고 두 개의 창으로 하루를
+모두 덮은 채 나타났습니다.
 
 ### 익명 프리뷰는 레지스트리에 넣을 것이 아니다
 

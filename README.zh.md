@@ -307,14 +307,17 @@ inferencemesh route free --min-context=200000
 ```sh
 inferencemesh sync --provider=redpill    --out=providers.local.json --dry-run
 inferencemesh sync --provider=openrouter --out=providers.local.json --dry-run
+inferencemesh sync --provider=nous       --out=providers.local.json --dry-run
 ```
 
-OpenRouter 的目录**不需要密钥**，这使它成为唯一一个不消耗任何人额度就能刷新的来源。它只按
-免费层读取：2026-08-22 时 421 个模型中有 22 个价格为零。
+OpenRouter 和 Nous Portal 的目录都**不需要密钥**，这使它们成为不消耗任何人额度就能刷新的两个
+来源。两者都只按免费层读取：OpenRouter 在 2026-08-22 时 421 个模型中有 22 个价格为零；
+Nous 在 2026-08-28 时 371 个模型中有 5 个在每一层都为零。
 
 这里的"免费"指的是**公布的每一项价格都为零**，而不只是按 token 的那两项。pricing 对象里还有
 `web_search`、`image`、各种缓存键，以及真正会让人栽跟头的 `overrides`——一组分时段的价格窗口。
 一个按 token 报零、却在 UTC 06:00 到 24:00 之间收费的模型不是免费，而是**看起来免费**。
+这在 2026-08-28 不再是假设：`tencent/hy3:free` 顶层报零，却用两个窗口覆盖了一整天。
 
 ### 匿名预览不是能进注册表的东西
 

@@ -63,7 +63,12 @@ function fail(msg: string): never {
  * README beside it: `--help` and `version` are the only way to find out what
  * is in front of them. Every flag listed here is one the code actually reads —
  * a test holds this text and the README to that.
+ *
+ * The catalog list is derived rather than typed. It was typed once, and the
+ * first catalog added after that shipped a --help that did not mention it.
  */
+const CATALOG_IDS = `  --provider=${Object.keys(CATALOGS).join('|')}`.padEnd(34) + '  ';
+
 const HELP = `inferencemesh — an OpenAI-compatible router across free LLM tiers
 
   inferencemesh setup [FILE]        walk through getting keys, verifying each one
@@ -85,7 +90,7 @@ probe flags
   --json                            for a scheduler; non-zero exit means rot
 
 sync flags
-  --provider=redpill|openrouter     which catalog to read
+${CATALOG_IDS}which catalog to read
   --out=FILE                        where to write (default providers.<id>.json)
   --dry-run                         report the diff, write nothing
 

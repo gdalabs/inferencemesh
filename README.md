@@ -342,18 +342,23 @@ provider's own catalog and writes the parts a machine can know:
 ```sh
 inferencemesh sync --provider=redpill    --out=providers.local.json --dry-run
 inferencemesh sync --provider=openrouter --out=providers.local.json --dry-run
+inferencemesh sync --provider=nous       --out=providers.local.json --dry-run
 ```
 
-OpenRouter's catalog is **keyless** — the model list is public, so this one can
-be refreshed without spending anybody's credit. It is read free-tier only: 421
-models on 2026-08-22, of which 22 were priced at zero, and the registry
-provider it fills is the free tier by definition.
+The OpenRouter and Nous Portal catalogs are **keyless** — their model lists are
+public, so these two can be refreshed without spending anybody's credit. Both
+are read free-tier only, and the registry providers they fill are the free tier
+by definition: OpenRouter listed 421 models on 2026-08-22, of which 22 were
+priced at zero; Nous listed 371 on 2026-08-28, of which 5 were free at every
+level.
 
 "Free" there means every published price is zero, not just per-token. The
 pricing object also carries `web_search`, `image`, the cache keys and —
 the one that would actually catch someone — `overrides`, a list of
 time-of-day windows with prices of their own. A model quoting zero per token
-and charging between 06:00 and 24:00 UTC is not free, it is free-looking.
+and charging between 06:00 and 24:00 UTC is not free, it is free-looking. That
+stopped being hypothetical on 2026-08-28, when `tencent/hy3:free` turned up
+quoting zero at the top level with two windows covering the whole day.
 
 Refreshed every run: existence, context window, capabilities, price — stamped
 with `priceVerifiedAt` for the day the catalog was read, because the catalog
