@@ -26,6 +26,21 @@ POST /v1/chat/completions   { "model": "mesh/free", "messages": [...] }
   provider whose tier is `internal`, no matter how well it scores.
 - **MIT.** The router is open. What you route *to* — and what you do with the answers — is yours.
 
+### How this differs
+
+Routers across free tiers are not a new idea. [`docs/prior-art.md`](docs/prior-art.md) reads nine
+of them and says plainly which of the ideas here are not original: free-tier accounting is not,
+and routing on sensitivity is not. Three things are uncommon enough to be worth stating.
+
+- **It will not fall back to a paid model.** Every gateway surveyed treats paid fallback as a
+  feature. Here an exhausted free tier is an error, because the person most likely to be routing
+  through free tiers is the person least able to see a bill coming.
+- **There is no way to read a key back out.** `KeyStore` has no `get` — not encrypted at rest,
+  absent. No endpoint can return one and nothing logs one.
+- **Nothing in the registry is guessed.** A non-zero price with no verification date fails
+  validation; a capability nobody probed is not declared. Those mistakes do not raise errors,
+  they quietly reorder routing, which is why they are enforced rather than reviewed.
+
 ---
 
 ## Start with no key and no signup
@@ -181,6 +196,19 @@ curl localhost:8910/v1/chat/completions \
 The server **refuses to start without an auth token** and **refuses to bind `0.0.0.0`** unless you
 override it. This process holds every provider key you own; an open LLM relay on a shared network
 is somebody else's free inference budget. Put `tailscale serve` or a reverse proxy in front of it.
+
+### From your editor
+
+| Client | Works | |
+|---|---|---|
+| [OpenCode](https://opencode.ai) | **yes** | verified end to end |
+| Any OpenAI-compatible client or SDK | **yes** | `/v1/chat/completions` is the whole contract |
+| [Codex CLI](https://github.com/openai/codex) | **no** | needs `/v1/responses` |
+| [Claude Code](https://code.claude.com) | **no** | needs the Anthropic Messages API |
+
+Configuration for each, and the measurements behind that table, are in
+[`docs/clients.md`](docs/clients.md). Both **no** rows were established by running the client
+until it failed, not by reading its documentation — neither tool tells you in advance.
 
 ### On Cloudflare Workers
 
