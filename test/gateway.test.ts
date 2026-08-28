@@ -326,23 +326,23 @@ describe('gateway — CORS', () => {
   });
 
   test('an allowed origin is echoed; a disallowed one is not', async () => {
-    const g = gateway(new Set(['secret']), { allowedOrigins: ['https://vps-navi.com'] });
-    const ok = await g(post(chatBody, { authorization: 'Bearer secret', origin: 'https://vps-navi.com' }));
-    assert.equal(ok.headers.get('access-control-allow-origin'), 'https://vps-navi.com');
+    const g = gateway(new Set(['secret']), { allowedOrigins: ['https://app.example.com'] });
+    const ok = await g(post(chatBody, { authorization: 'Bearer secret', origin: 'https://app.example.com' }));
+    assert.equal(ok.headers.get('access-control-allow-origin'), 'https://app.example.com');
     const bad = await g(post(chatBody, { authorization: 'Bearer secret', origin: 'https://evil.test' }));
     assert.equal(bad.headers.get('access-control-allow-origin'), null);
   });
 
   test('preflight is answered without a token', async () => {
-    const g = gateway(new Set(['secret']), { allowedOrigins: ['https://vps-navi.com'] });
+    const g = gateway(new Set(['secret']), { allowedOrigins: ['https://app.example.com'] });
     const res = await g(
       new Request('http://localhost/v1/chat/completions', {
         method: 'OPTIONS',
-        headers: { origin: 'https://vps-navi.com' },
+        headers: { origin: 'https://app.example.com' },
       }),
     );
     assert.equal(res.status, 204);
-    assert.equal(res.headers.get('access-control-allow-origin'), 'https://vps-navi.com');
+    assert.equal(res.headers.get('access-control-allow-origin'), 'https://app.example.com');
   });
 });
 
