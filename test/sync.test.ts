@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
-import { OPENROUTER, REDPILL } from '../src/catalogs.js';
+import { NOUS, OPENROUTER, REDPILL } from '../src/catalogs.js';
 import { validateRegistryFile } from '../src/config.js';
 import { DEFAULT_QUALITY_SCORE, qualityScore } from '../src/registry.js';
 import { mergeCapabilities, syncModels, type CatalogModel } from '../src/sync.js';
@@ -566,5 +566,69 @@ describe('pricing conditions are not prices', () => {
       () => OPENROUTER.read(withOverride({ mystery: { nested: true }, prompt: '0' })),
       /unreadable mystery/,
     );
+  });
+});
+
+describe('a list price is not a charge', () => {
+  const withPricing = (pricing: Record<string, unknown>) => ({
+    data: [
+      {
+        id: 'vendor/m:free',
+        context_length: 1000,
+        architecture: { output_modalities: ['text'] },
+        pricing,
+        supported_parameters: [],
+      },
+    ],
+  });
+
+  test('a non-zero original does not make a currently free model paid', () => {
+    // Nous carries `original` — the undiscounted list price — on 362 of 371
+    // models. Read as money it would drop every discounted-to-zero model.
+    const out = NOUS.read(
+      withPricing({
+        prompt: '0',
+        completion: '0',
+        original: { prompt: '0.00000015', completion: '0.00000047' },
+      }),
+    );
+    assert.equal(out.length, 1, 'zero today is free today');
+  });
+
+  test('a zero original is still validated rather than trusted', () => {
+    const out = NOUS.read(
+      withPricing({ prompt: '0', completion: '0', original: { prompt: '0', completion: 0 } }),
+    );
+    assert.equal(out.length, 1);
+  });
+
+  test('an original that is not an object is an error', () => {
+    assert.throws(
+      () => NOUS.read(withPricing({ prompt: '0', completion: '0', original: '0' })),
+      /nous: vendor\/m:free has an unreadable original price/,
+    );
+  });
+
+  test('an unreadable price inside original is an error, not an assumption', () => {
+    assert.throws(
+      () => NOUS.read(withPricing({ prompt: '0', completion: '0', original: { prompt: 'free' } })),
+      /nous: vendor\/m:free has an unreadable original\.prompt price/,
+    );
+  });
+
+  test('an all-day override still costs money even under a zero headline', () => {
+    // tencent/hy3:free on 2026-08-28 — the first zero-priced model to carry
+    // overrides, which is the case the check was written for.
+    const out = NOUS.read(
+      withPricing({
+        prompt: '0',
+        completion: '0',
+        overrides: [
+          { utc_start: 0, utc_end: 1600, prompt: '0.000000132', completion: '0.000000528' },
+          { utc_start: 1600, utc_end: 0, prompt: '0.0000000825', completion: '0.00000033' },
+        ],
+      }),
+    );
+    assert.deepEqual(out, [], 'free-looking, not free');
   });
 });

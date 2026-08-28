@@ -167,7 +167,10 @@ interface OpenRouterModel {
  * a `utc_start`/`utc_end` that are hours, not money. **A model can be free at
  * the top level and charge inside a window** — 60 models carried overrides on
  * 2026-08-22, none of them free ones, which is exactly the state in which a
- * naive check looks correct forever and then quietly bills someone.
+ * naive check looks correct forever and then quietly bills someone. That first
+ * free-looking case arrived on 2026-08-28: Nous listed `tencent/hy3:free` with
+ * zero top-level prices, but two non-zero override windows covered the whole
+ * day (`utc_start` 0->1600 and 1600->0).
  *
  * Anything unreadable throws. An unparseable price is not evidence of zero,
  * and this decides what goes into a file whose entire promise is that its
@@ -187,16 +190,62 @@ interface OpenRouterModel {
  */
 const PRICING_CONDITION_KEYS = new Set(['utc_start', 'utc_end', 'utc_days', 'min_prompt_tokens']);
 
-function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
+/**
+ * `pricing.original` — the undiscounted list prices, not a charge.
+ *
+ * Nous carries it on 362 of 371 models (2026-08-28): an object mirroring the
+ * top-level price keys with what they would cost undiscounted. It is pricing
+ * information, but it is not money anybody is asked for, so reading it as a
+ * price would reject a model whose prompt and completion are both zero today
+ * purely because its list price is not.
+ *
+ * It is deliberately NOT added to PRICING_CONDITION_KEYS. Those are opaque
+ * conditions; this has a known shape whose leaves are prices, and validating
+ * every leaf keeps the fail-closed rule: if the object changes shape or grows
+ * a value that does not parse, sync stops rather than quietly concluding that
+ * the model is free.
+ *
+ * A zero price with a non-zero `original` is still free at the instant the
+ * catalog describes. It carries no expiry and says nothing about the model
+ * being temporary, so it is not translated into `expiresAt` or `ephemeral` —
+ * that would be inventing a deadline the catalog never gave. If the discount
+ * ends, the top-level price stops being zero and the next sync drops it.
+ *
+ * No zero-priced model carried `original` on 2026-08-28.
+ */
+function validateOriginalPrices(value: unknown, catalogId: string, id: string): void {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${catalogId}: ${id} has an unreadable original price`);
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) {
+    throw new Error(`${catalogId}: ${id} has an unreadable original price`);
+  }
+  for (const [kind, price] of entries) {
+    if (num(price) === null) {
+      throw new Error(`${catalogId}: ${id} has an unreadable original.${kind} price`);
+    }
+  }
+}
+
+function everyPriceZero(
+  pricing: Record<string, unknown>,
+  id: string,
+  catalogId = 'openrouter',
+): boolean {
   let free = true;
   for (const [field, value] of Object.entries(pricing)) {
+    if (field === 'original') {
+      validateOriginalPrices(value, catalogId, id);
+      continue;
+    }
     if (field === 'overrides') {
-      if (!Array.isArray(value)) throw new Error(`openrouter: ${id} has an unreadable overrides`);
+      if (!Array.isArray(value)) throw new Error(`${catalogId}: ${id} has an unreadable overrides`);
       for (const window of value as Array<Record<string, unknown>>) {
         for (const [k, v] of Object.entries(window)) {
           if (PRICING_CONDITION_KEYS.has(k)) continue;
           const n = num(v);
-          if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${k} in overrides`);
+          if (n === null) throw new Error(`${catalogId}: ${id} has an unreadable ${k} in overrides`);
           if (n !== 0) free = false;
         }
       }
@@ -204,7 +253,7 @@ function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
     }
     if (PRICING_CONDITION_KEYS.has(field)) continue;
     const n = num(value);
-    if (n === null) throw new Error(`openrouter: ${id} has an unreadable ${field} price`);
+    if (n === null) throw new Error(`${catalogId}: ${id} has an unreadable ${field} price`);
     if (n !== 0) free = false;
   }
   return free;
@@ -231,8 +280,10 @@ function everyPriceZero(pricing: Record<string, unknown>, id: string): boolean {
  * and `internal_reasoning`, and — the one that would actually catch someone —
  * `overrides`, a list of time-of-day windows with prices of their own. A model
  * quoting zero per token while charging inside a window is not free, it is
- * free-looking. No zero-priced model carried overrides on 2026-08-22; the
- * check is here because the day one does is the day nobody re-reads this.
+ * free-looking. No zero-priced model carried overrides on 2026-08-22. The
+ * first real example appeared in Nous Portal on 2026-08-28:
+ * `tencent/hy3:free` quoted zero at the top level while two non-zero override
+ * windows covered the full day. This check rejects it.
  *
  * ## Anonymous previews
  *
@@ -326,7 +377,75 @@ export const OPENROUTER: CatalogSource = {
   },
 };
 
+/**
+ * Nous Portal — https://inference-api.nousresearch.com/v1/models
+ *
+ * The catalog is public and uses the same OpenRouter-compatible shape as
+ * OpenRouter's model list. Inference still requires `NOUS_API_KEY`.
+ *
+ * Free means every price at every level is zero. On 2026-08-28 the catalog
+ * carried 371 models, six of them zero-priced at the top level — but
+ * `tencent/hy3:free` had two non-zero override windows covering the entire
+ * day. `everyPriceZero` therefore leaves five genuinely free candidates.
+ *
+ * This reader records catalog facts only. Shipped entries stay disabled until
+ * a key exists and `probe` confirms the ids actually serve.
+ */
+export const NOUS: CatalogSource = {
+  id: 'nous',
+  url: 'https://inference-api.nousresearch.com/v1/models',
+  providerApiKeyEnv: 'NOUS_API_KEY',
+  caveat:
+    'Keyless catalog and free-tier only: every top-level and override price must be zero. ' +
+    'Catalog presence is not a successful probe; generated entries stay disabled until tested.',
+  read(raw: unknown): CatalogModel[] {
+    const data = (raw as { data?: unknown })?.data;
+    if (!Array.isArray(data)) throw new Error('nous: response has no `data` array');
+
+    const out: CatalogModel[] = [];
+    for (const entry of data as OpenRouterModel[]) {
+      if (!entry.id) continue;
+
+      const pricing = entry.pricing;
+      if (!pricing || typeof pricing !== 'object') {
+        throw new Error(`nous: ${entry.id} has no pricing object`);
+      }
+      if (!everyPriceZero(pricing, entry.id, 'nous')) continue;
+
+      const outputs = entry.architecture?.output_modalities;
+      if (Array.isArray(outputs) && outputs.length > 0 && !outputs.includes('text')) continue;
+
+      const ctx = num(entry.context_length);
+      if (ctx === null || ctx <= 0) {
+        throw new Error(`nous: ${entry.id} has an unreadable context_length`);
+      }
+
+      const params = new Set(entry.supported_parameters ?? []);
+      const inputs = entry.architecture?.input_modalities ?? [];
+      const capabilities: Capability[] = ['text'];
+      if (inputs.includes('image')) capabilities.push('vision');
+      if (inputs.includes('video')) capabilities.push('video');
+      if (params.has('tools')) capabilities.push('tools');
+      if (params.has('response_format') || params.has('structured_outputs')) {
+        capabilities.push('json');
+      }
+
+      out.push({
+        id: entry.id,
+        ...(entry.name ? { label: entry.name } : {}),
+        capabilities,
+        undeclared: params.size === 0 && inputs.length === 0,
+        contextWindow: Math.floor(ctx),
+        price: { inPerMTok: 0, outPerMTok: 0 },
+        note: 'free tier listed by Nous Portal; inference not yet probed',
+      });
+    }
+    return out;
+  },
+};
+
 export const CATALOGS: Record<string, CatalogSource> = {
   redpill: REDPILL,
   openrouter: OPENROUTER,
+  nous: NOUS,
 };
