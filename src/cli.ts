@@ -550,6 +550,16 @@ async function cmdSync(argv: string[]): Promise<number> {
 
 async function run(): Promise<void> {
   const [cmd, ...argv] = process.argv.slice(2);
+  // `--help` is honoured wherever it appears, not only in the command slot.
+  //
+  // `probe --help` used to fall through to `case 'probe'`, ignore the flag it
+  // did not recognise, and run a real probe — spending the caller's free quota
+  // to answer a request for documentation. Probe is the one command that costs
+  // something, which makes it the one that must not run by accident.
+  if (cmd !== undefined && argv.some((a) => a === '--help' || a === '-h')) {
+    console.log(HELP);
+    return;
+  }
   // `process.exitCode`, never `process.exit()`.
   //
   // process.exit() terminates before pending stdout writes are flushed, and

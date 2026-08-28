@@ -225,3 +225,36 @@ describe('cli — setup, all the way through', () => {
     assert.match(await readFile(keyFile, 'utf8'), /^STUB_KEY_FOR_CLI_TEST=sk-typed-by-a-person$/m);
   });
 });
+
+describe('--help after a subcommand', () => {
+  // `probe --help` used to reach `case 'probe'` and run a live probe: real
+  // requests, against the caller's free quota, to answer a question about
+  // usage. The flag was not rejected, it was simply not looked at.
+  //
+  // `probe` cannot be tested here without a network, so the proof is indirect
+  // and deliberately so: the help text must come out, and none of probe's own
+  // output may. A probe that started would print provider warnings first.
+  test('probe --help prints usage instead of probing', async () => {
+    const { code, out, err } = await cli(['probe', '--help']);
+    assert.equal(code, 0);
+    assert.match(out, /an OpenAI-compatible router across free LLM tiers/, 'the help text is what comes out');
+    assert.doesNotMatch(
+      out + err,
+      /reachable|rate-limited|skipped: missing env/,
+      'no sign that a probe ran',
+    );
+  });
+
+  test('-h works the same way, and on every command', async () => {
+    for (const argv of [
+      ['probe', '-h'],
+      ['sync', '--help'],
+      ['route', 'free', '--help'],
+      ['serve', '--help'],
+    ]) {
+      const { code, out } = await cli(argv);
+      assert.equal(code, 0, `${argv.join(' ')} exited non-zero`);
+      assert.match(out, /inferencemesh setup \[FILE\]/, `${argv.join(' ')} printed no help`);
+    }
+  });
+});
