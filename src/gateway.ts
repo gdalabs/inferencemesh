@@ -12,6 +12,7 @@ import { InferenceMesh } from './mesh.js';
 import { Registry, blendedPrice, maxPrivacyOf } from './registry.js';
 import { SETUP_HTML } from './setup-ui.js';
 import { MeshError, NoCandidateError, type ChatRequest, type ProviderConfig } from './types.js';
+import { validationRequest } from './validation-probe.js';
 
 /**
  * How the gateway persists a key it has just verified.
@@ -244,12 +245,7 @@ export async function handleRequest(req: Request, opts: GatewayOptions): Promise
     const trial = new InferenceMesh({ registry: probe, maxAttempts: 1, timeoutMs: 30_000 });
     const t0 = Date.now();
     try {
-      await trial.chat({
-        model: candidate.key,
-        messages: [{ role: 'user', content: 'ping' }],
-        max_tokens: 1,
-        temperature: 0,
-      });
+      await trial.chat(validationRequest(candidate.key));
     } catch (err) {
       const why = (err instanceof Error ? err.message : String(err)).slice(0, 200);
       return json({ ok: false, why }, 200, ch);

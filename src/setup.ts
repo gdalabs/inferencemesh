@@ -26,6 +26,7 @@ import { stdin, stdout } from 'node:process';
 import { InferenceMesh } from './mesh.js';
 import { Registry } from './registry.js';
 import type { ProviderConfig } from './types.js';
+import { validationRequest } from './validation-probe.js';
 
 type Lang = 'en' | 'ja';
 
@@ -108,12 +109,7 @@ async function verify(
   const mesh = new InferenceMesh({ registry, maxAttempts: 1, timeoutMs: 30_000 });
   const t0 = Date.now();
   try {
-    await mesh.chat({
-      model: candidate.key,
-      messages: [{ role: 'user', content: 'ping' }],
-      max_tokens: 1,
-      temperature: 0,
-    });
+    await mesh.chat(validationRequest(candidate.key));
     return { ok: true, ms: Date.now() - t0 };
   } catch (err) {
     return { ok: false, why: (err instanceof Error ? err.message : String(err)).slice(0, 160) };
