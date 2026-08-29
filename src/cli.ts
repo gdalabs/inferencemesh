@@ -22,6 +22,7 @@ import { CATALOGS } from './catalogs.js';
 import { VALID_CAPABILITIES, registryFrom, validateRegistryFile, type RegistryFile } from './config.js';
 import { InferenceMesh } from './mesh.js';
 import { Router } from './router.js';
+import { validationRequest } from './validation-probe.js';
 import {
   compareToRegistry,
   hasNativePrompt,
@@ -162,12 +163,7 @@ async function cmdProbe(argv: string[]): Promise<number> {
     if (only && c.provider.id !== only) continue;
     const t0 = Date.now();
     try {
-      const res = await mesh.chat({
-        model: c.key,
-        messages: [{ role: 'user', content: probePrompt() }],
-        max_tokens: 1,
-        temperature: 0,
-      });
+      const res = await mesh.chat(validationRequest(c.key));
       const text = res.choices[0]?.message.content;
       results.push({
         key: c.key,
