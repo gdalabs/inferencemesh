@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 
-import { attemptStatus, shortMessage, verdictFor } from '../src/probe-report.js';
+import { attemptStatus, probePrompt, shortMessage, verdictFor } from '../src/probe-report.js';
 import { ProviderError } from '../src/providers/base.js';
 import { MeshError } from '../src/types.js';
 
@@ -72,5 +72,24 @@ describe('shortMessage', () => {
 
   test('a long message is cut to the width asked for', () => {
     assert.equal(shortMessage(new Error('x'.repeat(400)), 20).length, 20);
+  });
+});
+
+describe('the probe prompt', () => {
+  // A provider that caches will answer a repeated prompt from store and never
+  // touch the model. Pollinations' anonymous tier did exactly that on
+  // 2026-08-29: identical body and identical response id for a repeated
+  // prompt, 402 for a new one. A probe that reuses a string cannot tell the
+  // difference between a healthy provider and a cached corpse.
+  test('never repeats, so a cache cannot answer for the provider', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i++) seen.add(probePrompt());
+    assert.equal(seen.size, 500, 'a prompt was reused');
+  });
+
+  test('repeats nothing even when the clock does not move', () => {
+    // Two probes inside the same millisecond is the ordinary case for a fast
+    // provider, and the timestamp alone would collide there.
+    assert.notEqual(probePrompt(1_700_000_000_000), probePrompt(1_700_000_000_000));
   });
 });

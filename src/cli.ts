@@ -38,7 +38,7 @@ import { EXPIRY_WARNING_DAYS, daysBetween, syncModels } from './sync.js';
 // beside it, and a binary that cannot say what it is turns every bug report
 // into a guess about which build the reporter has.
 import { VERSION } from './version.js';
-import { attemptStatus, shortMessage, verdictFor } from './probe-report.js';
+import { attemptStatus, probePrompt, shortMessage, verdictFor } from './probe-report.js';
 import { PRIVACY_ORDER, type Capability, type PrivacyLevel } from './types.js';
 
 /**
@@ -164,7 +164,7 @@ async function cmdProbe(argv: string[]): Promise<number> {
     try {
       const res = await mesh.chat({
         model: c.key,
-        messages: [{ role: 'user', content: 'ping' }],
+        messages: [{ role: 'user', content: probePrompt() }],
         max_tokens: 1,
         temperature: 0,
       });

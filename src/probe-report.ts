@@ -56,3 +56,22 @@ export function shortMessage(err: unknown, max = 160): string {
   const message = err instanceof Error ? err.message : String(err);
   return message.replace(/^all \d+ attempt\(s\) failed: \S+ /, '').slice(0, max);
 }
+
+/**
+ * The prompt `probe` sends, with a value nothing has ever been asked before.
+ *
+ * A fixed prompt is not a health check against a provider that caches. On
+ * 2026-08-29 Pollinations' anonymous tier answered `say hi` three times with a
+ * byte-identical body and the *same response id*, while a prompt nobody had
+ * sent returned `402 Payment Required` — with no API key involved at all. The
+ * tier was exhausted and the cache was hiding it. A probe sending `ping`
+ * would have gone green on the first success and stayed green forever, which
+ * is the failure this file exists to prevent.
+ *
+ * Uniqueness is the whole requirement, so a counter and a timestamp are
+ * enough; this is not a security boundary and does not need randomness.
+ */
+let probeSeq = 0;
+export function probePrompt(now: number = Date.now()): string {
+  return `ping ${now.toString(36)}${(probeSeq++).toString(36)}`;
+}
