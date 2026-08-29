@@ -130,6 +130,178 @@
       ]
     },
     {
+      "id": "bai",
+      "kind": "openai-compat",
+      "baseUrl": "https://api.b.ai/v1",
+      "apiKeyEnv": "BAI_API_KEY",
+      "maxPrivacy": "public",
+      "signupUrl": "https://chat.b.ai/chat",
+      "summary": "B.AI の期間限定プロモで 0 Credits のモデル。無料枠ではない",
+      "freeTierNote": "終了日が公表されていない期間限定オファー。終われば標準価格に戻る（note に戻り先の価格）",
+      "keyPrefix": "sk-",
+      "signupSteps": {
+        "ja": [
+          "chat.b.ai/chat を開く",
+          "右上の「Log in」を押す",
+          "Google などでログインする",
+          "左サイドバーの「API」を開く",
+          "「Create API Key」を押す",
+          "表示されたキーをその場でコピーして BAI_API_KEY に設定する"
+        ],
+        "en": [
+          "Open chat.b.ai/chat",
+          "Press \"Log in\" at the top right",
+          "Sign in with Google or another method",
+          "Open \"API\" in the left sidebar",
+          "Press \"Create API Key\"",
+          "Copy the key shown and set BAI_API_KEY"
+        ]
+      },
+      "$comment": [
+        "Every price here is zero because of a promotion, not because of a free tier.",
+        "B.AI publishes no end date for any of them — only 'after the offer ends, the",
+        "model returns to standard pricing' — so each model carries `ephemeral` and a",
+        "note naming the price it reverts to. Checked 2026-08-29.",
+        "",
+        "The catalog at /v1/models needs a key and carries no prices, so this provider",
+        "cannot be a CatalogSource: nothing machine-readable says these are free. Every",
+        "id below was confirmed by an actual call instead.",
+        "",
+        "`deepseek-v4-flash-vision-exp` is free and answers, but has no documentation",
+        "page, so its context window is not stated anywhere. It is left out rather than",
+        "given a number copied from its base model."
+      ],
+      "models": [
+        {
+          "id": "glm-5.3-flash",
+          "label": "GLM-5.3-Flash (B.AI promo)",
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.74,
+          "languages": {
+            "en": 0.88,
+            "zh": 0.92,
+            "ja": 0.72,
+            "ko": 0.68,
+            "*": 0.65
+          },
+          "ephemeral": true,
+          "note": "promo 0 Credits; reverts to 0.075 in / 0.25 out Credits per token. Probed 2026-08-29"
+        },
+        {
+          "id": "qwen3.8-flash",
+          "label": "Qwen3.8-Flash (B.AI promo)",
+          "capabilities": [
+            "text",
+            "code",
+            "vision",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.74,
+          "languages": {
+            "en": 0.88,
+            "zh": 0.92,
+            "ja": 0.76,
+            "ko": 0.7,
+            "*": 0.66
+          },
+          "ephemeral": true,
+          "note": "promo 0 Credits; reverts to 0.16 in / 0.47 out Credits per token. Probed 2026-08-29"
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "label": "DeepSeek-V4-Flash (B.AI promo)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.76,
+          "languages": {
+            "en": 0.9,
+            "zh": 0.92,
+            "ja": 0.74,
+            "ko": 0.68,
+            "*": 0.66
+          },
+          "ephemeral": true,
+          "note": "promo 0 Credits; reverts to idle 0.22 in / 0.66 out, busy 0.44 / 1.32 Credits per token. Probed 2026-08-29"
+        },
+        {
+          "id": "hy3",
+          "label": "Hy3 (B.AI promo)",
+          "capabilities": [
+            "text",
+            "code",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.7,
+          "languages": {
+            "en": 0.84,
+            "zh": 0.92,
+            "ja": 0.7,
+            "ko": 0.66,
+            "*": 0.62
+          },
+          "ephemeral": true,
+          "note": "promo 0 Credits; reverts to 0.132 in / 0.528 out Credits per token. Probed 2026-08-29. The same model is NOT free on Nous, where all-day pricing overrides sit under a zero headline"
+        },
+        {
+          "id": "mimo-v2.5",
+          "label": "MiMo-V2.5 (B.AI promo)",
+          "capabilities": [
+            "text",
+            "vision",
+            "tools",
+            "json"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quality": 0.68,
+          "languages": {
+            "en": 0.84,
+            "zh": 0.9,
+            "ja": 0.7,
+            "ko": 0.64,
+            "*": 0.6
+          },
+          "ephemeral": true,
+          "disabled": true,
+          "note": "promo 0 Credits; reverts to 0.14 in / 0.28 out Credits per token. Listed but answered 'Upstream rate limit exceeded' on all three attempts 2026-08-29 — enable it when probe passes"
+        }
+      ]
+    },
+    {
       "id": "groq",
       "kind": "openai-compat",
       "baseUrl": "https://api.groq.com/openai/v1",
