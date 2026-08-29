@@ -145,6 +145,17 @@ node scripts/discover-providers.mjs             # find new free tiers; exit 10 =
   across three models and all three were admitted — so the token-denominated
   limit is tokenizer-dependent, and a floor measured with ASCII is not a floor
   for Japanese.
+- 🔴 **A promotional zero is not a free tier.** B.AI (`api.b.ai`, checked
+  2026-08-29) is a credit-billed reseller of Claude, GPT, Gemini and DeepSeek
+  that currently bills five models at **0 Credits** — DeepSeek-V4-Flash, its
+  vision variant, Hy3, MiMo-V2.5, GLM-5.3-Flash — each carrying the sentence
+  "After the offer ends, X will return to standard pricing." This is worse than
+  an invented price: an invented one is wrong immediately, while this `0` is
+  *correct today* and becomes wrong on a date nobody announces. Written into the
+  registry it keeps winning `cheap` after the promotion ends, and the invoice is
+  the notification. A signup grant is the same shape — B.AI's 300,000 Credits
+  expire in 30 days. Record a price of zero only where the free tier is the
+  product, never where it is this month's offer.
 - 🔴 **`pricing.request` is not a per-token price.** OrcaRouter's catalog offers
   `{"request": "0.000000"}` and nothing else: no `prompt`, no `completion`. That
   says a request costs no flat fee, not that tokens are free. It is why
