@@ -432,6 +432,22 @@ describe('OPENROUTER catalog reader', () => {
     assert.deepEqual(OPENROUTER.read(raw(audio)), []);
   });
 
+  test('a generator that also emits text is not a chat candidate', () => {
+    // google/lyria-3-clip-preview on 2026-09-05: zero per token, text among
+    // its outputs, and 0.04 charged for the clip it actually produces.
+    const clip = model({ architecture: { output_modalities: ['text', 'audio'] } });
+    assert.deepEqual(OPENROUTER.read(raw(clip)), []);
+  });
+
+  test('an unstated output list is not a denial', () => {
+    // Absent is not denied: older entries and other catalogs omit the list,
+    // and dropping them would lose live chat models to say nothing new.
+    const absent = model({ architecture: { input_modalities: ['text'] } });
+    assert.equal(OPENROUTER.read(raw(absent)).length, 1);
+    const empty = model({ architecture: { output_modalities: [] } });
+    assert.equal(OPENROUTER.read(raw(empty)).length, 1);
+  });
+
   test('an announced expiry is carried through', () => {
     const [m] = OPENROUTER.read(raw(model({ expiration_date: '2026-08-24' })));
     assert.equal(m?.expiresAt, '2026-08-24');

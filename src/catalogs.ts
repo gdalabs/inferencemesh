@@ -334,8 +334,24 @@ export const OPENROUTER: CatalogSource = {
       // A model that does not answer in text cannot serve a chat request.
       // The catalog lists image and audio generators at zero alongside the
       // language models, and routing to one would fail every request it won.
+      //
+      // Text has to be the only output, not merely one of them. A generator
+      // that also emits text still bills for what it generates, and that
+      // charge is not in `pricing`: on 2026-09-05 `google/lyria-3-clip-preview`
+      // quoted `prompt` and `completion` at zero, declared
+      // `output_modalities: ['text', 'audio']`, and billed `usage.cost` 0.04
+      // for one clip. It also rejects a non-streaming request outright. Either
+      // way the request fails; letting it through only adds a bill.
+      //
+      // This drops a model that would have answered in text alone had it been
+      // asked to. That is the intended direction: a mixed output list is not
+      // proof of a free chat reply, and being wrong about "free" is expensive.
+      // An absent or empty list stays admitted — absent is not denied, the
+      // same reading `supported_parameters` gets a few lines below.
       const outputs = entry.architecture?.output_modalities;
-      if (Array.isArray(outputs) && outputs.length > 0 && !outputs.includes('text')) continue;
+      if (Array.isArray(outputs) && outputs.length > 0) {
+        if (outputs.length !== 1 || outputs[0] !== 'text') continue;
+      }
 
       const ctx = num(entry.context_length);
       if (ctx === null || ctx <= 0) {
