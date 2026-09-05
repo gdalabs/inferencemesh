@@ -73,8 +73,14 @@ describe('server — a client that hangs up', () => {
       assert.equal(source.wasCancelled(), false, 'still connected, nothing to cancel yet');
 
       ctrl.abort(new Error('client hung up'));
-      // The destroy lands on the socket-close turn, not synchronously.
-      await new Promise((r) => setTimeout(r, 50));
+      // The destroy lands on the socket-close turn, not synchronously. Poll
+      // instead of sleeping a fixed 50ms: on a loaded CI runner the turn can
+      // arrive later than that, which flaked Node 20 red on 2026-09-05 while
+      // a rerun of the same job went green.
+      const deadline = Date.now() + 5_000;
+      while (!source.wasCancelled() && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
       assert.equal(source.wasCancelled(), true, 'the provider stream must be cancelled');
     } finally {
       // In a `finally` so a failing assertion still lets the run exit: an
