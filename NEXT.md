@@ -214,7 +214,7 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 
 ## まだ本人の判断待ち
 
-1. **公開（public 化）の判断** — 監査は通っている
+1. ✅ **公開（public 化）の判断** → 2026-09-16 にpublic化済み（secret sweep: tracked files・historyとも鍵混入なし）
 2. ✅ 最初のタグでリリース経路を検証 → `v0.1.0-rc.1`（2026-09-05）でrelease workflowが史上初完走。5バイナリ＋SHA256SUMS公開済み
 3. OpenRouter の未登録無料モデル18件を probe して採用（鍵が要る）
 4. ✅ 未 push の commit → 解消済み（2026-09-05、main にpush済み。以降も都度push）
@@ -231,3 +231,10 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 - 腐敗対応：`qwen/qwen3.8-27b-free` が `/v1/models`＋`/api/free-package/public` の両方から消滅 → registryでdisabled化（削除せず、`58ccefb`）。orcaのFREE_MODELSからも除去。`docs/models.md` 再生成
 - 新候補（未probe）：`inclusionai/ling-3.0-flash-sante:free`（openrouter/nous）、llm7の `gpt-5.5-openai-compact`/`gpt-6-astra`、orcarouterの `z-ai/glm-5.3-flash-free`
 - 🔴 OrcaRouter無料枠は現在アカウントゲートで停止中（`err_free_access_denied`、retryable:false。再試行は無意味）。qwen以外の2件もprobe不能。ゲート解除後に再probeすること
+
+## セッション 2026-09-16（公開作業）
+
+- secret sweep: `.env` 未追跡・historyに鍵混入なし・tracked内の一致はkey prefixの文書のみ → **public化実行**
+- 鍵ゼロ経路の再確認：`probe --provider=llm7` 1/1 reachable（鍵なし実測応答）。他鍵は無消費で検証：OpenRouterは `/models` 200、Cloudflare tokenはverifyでactive。OrcaRouter鍵自体は有効だが無料枠はaccount gate停止中
+- 公開install検証：未認証で `install.sh | sh`（BIN_DIR=/tmp）→ checksum ok。鍵ゼロの `route free` は llm7/minimax-m2.7 のみを提示。公開ストーリー成立
+- ⚠️ `CLOUDFLARE_API_TOKEN` は `.env` になくプロセスenvにのみ存在。本人のCLI利用には `.env` への TOKEN＋ACCOUNT_ID 投入が必要
