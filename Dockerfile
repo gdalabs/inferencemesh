@@ -41,6 +41,11 @@ COPY examples ./examples
 # matches a two-letter language code and nothing else, so a fifth language
 # needs no edit here while a README-draft.md still cannot ride along.
 COPY providers.default.json providers.example.json README.md README.??.md LICENSE docker-compose.yml install.sh ./
+COPY scripts ./scripts
+# docs/models.md likewise: models-doc.test.js --check regenerates it and diffs
+# against the checked-in copy. Without docs/ the check fails on a missing
+# file — the third instance of the same omission class in this file.
+COPY docs ./docs
 RUN npx tsc -p tsconfig.json
 
 # The test suite needs no network, so it runs at build time. An image that
