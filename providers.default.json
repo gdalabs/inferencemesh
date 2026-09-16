@@ -1304,7 +1304,8 @@
         {
           "id": "qwen/qwen3.8-27b-free",
           "label": "Qwen3.8 27B (OrcaRouter free)",
-          "$comment": "2026-08-27 実測: 応答・tool_calls・json_object を確認。code も node で実行して確認。カタログは context_length 65536 と言うが、無料枠のリクエスト上限はそれより手前にある（prompt 55,803 tokens が通り、約59,900 で 400）",
+          "$comment": "2026-08-27 実測: 応答・tool_calls・json_object を確認。code も node で実行して確認。カタログは context_length 65536 と言うが、無料枠のリクエスト上限はそれより手前にある（prompt 55,803 tokens が通り、約59,900 で 400）。2026-09-05: /v1/models と /api/free-package/public の両方から消滅。無料枠ローテーションで離脱したため disabled（削除ではない。復帰したら probe で再確認して外す）",
+          "disabled": true,
           "capabilities": [
             "text",
             "code",

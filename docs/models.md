@@ -5,7 +5,7 @@
 registry disagree, so a model that leaves a free tier cannot quietly leave
 this page saying it is still there.
 
-11 providers, 37 models, 31 of them enabled.
+11 providers, 37 models, 30 of them enabled.
 Every model here is free to call. A non-zero price without a verification
 date fails validation, and paid entries belong in your own copy of
 `providers.example.json`, never in this one.
@@ -140,7 +140,7 @@ Sign up: https://token.llm7.io/
 
 ## orcarouter
 
-**Key:** `ORCAROUTER_API_KEY` · **Privacy tier:** `public` · **Enabled:** 3/3 · **Account-wide quota:** 10/min · 50/day
+**Key:** `ORCAROUTER_API_KEY` · **Privacy tier:** `public` · **Enabled:** 2/3 · **Account-wide quota:** 10/min · 50/day
 
 > The quota above belongs to the **key**, not to each model: all of this
 > provider's models draw on the same budget.
@@ -148,7 +148,7 @@ Sign up: https://token.llm7.io/
 | | Model | Context | Capabilities | Quota | Quality | Price |
 |---|---|---:|---|---|---:|---|
 | ✓ | `deepseek/deepseek-v4-flash-free` | 30,000 | text, code, tools, json | — | — | free |
-| ✓ | `qwen/qwen3.8-27b-free` | 55,000 | text, code, tools, json | — | — | free |
+| ✗ | `qwen/qwen3.8-27b-free` | 55,000 | text, code, tools, json | — | — | free |
 | ✓ | `tencent/hy3-free` | 30,000 | text, tools, json | — | — | free |
 
 Sign up: https://www.orcarouter.ai/console/keys
