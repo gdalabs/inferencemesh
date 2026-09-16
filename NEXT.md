@@ -215,6 +215,19 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 ## まだ本人の判断待ち
 
 1. **公開（public 化）の判断** — 監査は通っている
-2. 最初のタグでリリース経路を検証（**一度も走っていない**）
+2. ✅ 最初のタグでリリース経路を検証 → `v0.1.0-rc.1`（2026-09-05）でrelease workflowが史上初完走。5バイナリ＋SHA256SUMS公開済み
 3. OpenRouter の未登録無料モデル18件を probe して採用（鍵が要る）
-4. 未 push の5 commit を push するか
+4. ✅ 未 push の commit → 解消済み（2026-09-05、main にpush済み。以降も都度push）
+5. OrcaRouterワークスペースに定着したGitHub連携（`err_free_access_denied` で無料枠が現在停止中。コンソール→profile settingsで本人が操作）
+6. `.env` への `CLOUDFLARE_ACCOUNT_ID` と `MISTRAL_API_KEY` 投入（投入後にprobe実測）
+
+## セッション 2026-09-05（OpenCode + MuseSpark）
+
+- 開発エージェントを有料から MuseSpark（無料）に切替。opencode権限は全体自動（`~/.config/opencode/opencode.json` に `"permission": "allow"`、再起動で反映）
+- 分岐解消：`probe-reply-budget` を `origin/main` にrebase＋未コミット吸収。テスト388件（366→+22）
+- CI v5化（checkout/setup-node。upload/download-artifactはv4が現行のため据置）
+- `v0.1.0-rc.1` で初リリース検証。CIはNode 20の1件flake（server-stream 50ms固定sleep）→同一jobリラン緑→poll化修正（`29dc0c2`）
+- 無料枠検証：Cloudflare OpenAI互換は公式確認（adapter対応済み、あとはACCOUNT_IDのみ）。SambaNova無料枠は撤回済み（402）と判明し除外。Mistral Experimentは生存（鍵取得は本人の手）
+- 腐敗対応：`qwen/qwen3.8-27b-free` が `/v1/models`＋`/api/free-package/public` の両方から消滅 → registryでdisabled化（削除せず、`58ccefb`）。orcaのFREE_MODELSからも除去。`docs/models.md` 再生成
+- 新候補（未probe）：`inclusionai/ling-3.0-flash-sante:free`（openrouter/nous）、llm7の `gpt-5.5-openai-compact`/`gpt-6-astra`、orcarouterの `z-ai/glm-5.3-flash-free`
+- 🔴 OrcaRouter無料枠は現在アカウントゲートで停止中（`err_free_access_denied`、retryable:false。再試行は無意味）。qwen以外の2件もprobe不能。ゲート解除後に再probeすること
