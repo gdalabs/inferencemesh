@@ -167,6 +167,23 @@ npx inferencemesh serve
 握着你拥有的每一把提供方密钥；共享网络上一个敞开的 LLM 中继，就是别人拿你的免费额度做推理的
 装置。请在它前面放 `tailscale serve` 或反向代理。
 
+### 在名称外发之前将其遮蔽
+
+免费套餐会保留提示词。若有不希望被用于训练的词，请在 `mesh.mask` 中列出：
+
+```sh
+curl localhost:8910/v1/chat/completions \
+  -H "authorization: Bearer $INFERENCEMESH_TOKENS" \
+  -H 'content-type: application/json' \
+  -d '{"model":"mesh/free","messages":[{"role":"user","content":"Will Tanaka Corp merge with Sato?"}],"mesh":{"mask":["Tanaka Corp","Sato"]}}'
+```
+
+每个词在本机被替换为按请求生成的别名，只发送别名化后的提示词（重试也复用同一份，
+不会重发原文）。响应中的别名会在返回前还原。对照表绝不会离开本进程。
+
+保证是有意收窄的：字面上的词不会外发。句子结构、话题以及发起过询问这一事实本身仍会
+外发。与 `stream: true` 并用会被400拒绝——跨流式分片的别名目前还无法如实还原。
+
 ### 在编辑器里使用
 
 | 客户端 | 是否可用 | |

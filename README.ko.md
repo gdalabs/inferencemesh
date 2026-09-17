@@ -183,6 +183,25 @@ npx inferencemesh serve
 LLM 중계기는 남이 당신의 무료 한도로 추론하는 장치입니다. 앞에 `tailscale serve`나 리버스
 프록시를 두세요.
 
+### 이름을 내보내기 전에 가리기
+
+무료 티어는 프롬프트를 보관합니다. 학습에 쓰이면 곤란한 단어가 있으면 `mesh.mask`에 나열하십시오:
+
+```sh
+curl localhost:8910/v1/chat/completions \
+  -H "authorization: Bearer $INFERENCEMESH_TOKENS" \
+  -H 'content-type: application/json' \
+  -d '{"model":"mesh/free","messages":[{"role":"user","content":"Will Tanaka Corp merge with Sato?"}],"mesh":{"mask":["Tanaka Corp","Sato"]}}'
+```
+
+각 단어는 이 머신에서 요청 단위의 별칭으로 바뀌고, 별칭화된 프롬프트만 전송됩니다(재시도도
+같은 것을 재사용하며 원문은 다시 보내지 않습니다). 응답 속 별칭은 되돌린 뒤 반환합니다.
+대응표가 프로세스 밖으로 나가는 일은 없습니다.
+
+보장은 의도적으로 좁습니다. 문자 그대로의 단어는 나가지 않습니다. 문장 구조・주제・질의한
+사실 자체는 나갑니다. `stream: true`와의 병용은 400으로 거부됩니다 — 스트림 조각에 걸친
+별칭은 아직 정직하게 복원할 수 없습니다.
+
 ### 에디터에서 쓰기
 
 | 클라이언트 | 가능 여부 | |

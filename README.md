@@ -197,6 +197,26 @@ The server **refuses to start without an auth token** and **refuses to bind `0.0
 override it. This process holds every provider key you own; an open LLM relay on a shared network
 is somebody else's free inference budget. Put `tailscale serve` or a reverse proxy in front of it.
 
+### Masking names before they leave
+
+Free tiers keep the prompts. If a request must not train anyone's model, list the terms to
+withhold in `mesh.mask`:
+
+```sh
+curl localhost:8910/v1/chat/completions \
+  -H "authorization: Bearer $INFERENCEMESH_TOKENS" \
+  -H 'content-type: application/json' \
+  -d '{"model":"mesh/free","messages":[{"role":"user","content":"Will Tanaka Corp merge with Sato?"}],"mesh":{"mask":["Tanaka Corp","Sato"]}}'
+```
+
+Each term is replaced with a per-request alias on this machine, the aliased prompt is sent
+(retries reuse it — the original is never re-sent), and aliases in the reply are restored before
+it reaches you. The table never leaves the process.
+
+What this promises is narrow on purpose: the literal terms do not travel. Sentence shape, topic,
+and the fact of asking still do. Mask with `stream: true` is refused with a 400 — an alias split
+across stream chunks cannot be restored honestly yet.
+
 ### From your editor
 
 | Client | Works | |
