@@ -99,6 +99,18 @@
   needs a real key to check the result against. Guessing at a wire format from
   documentation is how you ship something that type-checks and 400s.
 - **Embeddings and rerank.** Present in the capability type, absent from adapters.
+- **Scatter the question, not just mask the names.** `src/redact.ts` (2026-09-17)
+  keeps literal secrets off the wire by aliasing them locally, but the shape of
+  the question still travels in the clear. The next step is decomposition: split
+  one question into independent sub-questions, send each to a *different
+  operator's* provider with randomised placement so no single provider holds
+  the whole, and join locally — never via another model call. Honest limits, to
+  be written in the README rather than discovered from an invoice: colluding
+  providers reconstruct everything, the join point knows all, and asking at all
+  leaks interest. What the design *can* promise is that no single provider
+  receives the full text. Decoy queries (P2) multiply free-tier spend and stay
+  opt-in per request. A request-level `shatter` flag fits beside `maxPrivacy`:
+  privacy filters *where* text may go, shatter dictates *how*.
 
 ## Non-goals
 
