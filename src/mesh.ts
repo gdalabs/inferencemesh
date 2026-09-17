@@ -14,9 +14,11 @@ import { costOf, type Registry } from './registry.js';
 import { ProviderError, type Adapter, type FetchLike } from './providers/base.js';
 import { GeminiAdapter } from './providers/gemini.js';
 import { OpenAICompatAdapter } from './providers/openai-compat.js';
+import { redact, restore } from './redact.js';
 import {
   MeshError,
   NoCandidateError,
+  type ChatMessage,
   type ChatRequest,
   type ChatResponse,
   type MeshTrace,
@@ -101,12 +103,83 @@ export function estimateTokens(req: ChatRequest): number {
  *   'groq/llama-3.3-70b'          -> pinned candidate
  *   'openrouter/deepseek/chat-v4' -> pinned candidate (model ids may contain /)
  */
-export function parseModel(model: string): RouteRequest {
-  const slash = model.indexOf('/');
+export function parseModel(model: string): RouteRequest {  const slash = model.indexOf('/');
   if (slash === -1) return { pin: model };
   const head = model.slice(0, slash);
   if (head === 'mesh') return { mesh: model.slice(slash + 1) };
   return { pin: model };
+}
+
+/**
+ * Alias the masked terms out of every message before anything is attempted.
+ *
+ * One table for the whole request, so the same term becomes the same alias
+ * in the system prompt and in every user turn — a model that cannot tell two
+ * mentions apart cannot follow the question. The table is built here, in the
+ * mesh, and handed to no provider: adapters receive the redacted request and
+ * `stripMeshFields` drops the `mesh` extension (with the term list) before
+ * the body is serialised. Fallback reuses the same redacted request, so a
+ * retry never re-sends the original.
+ *
+ * A prompt that already contains an alias token is the caller's mistake, and
+ * `redact` throws for it. That throw is re-raised as a 400 here: it is a bad
+ * request, not an internal failure, and the gateway maps it accordingly.
+ */
+function maskRequest(req: ChatRequest): { req: ChatRequest; entities: string[] } {
+  const terms = req.mesh?.mask ?? [];
+  if (terms.length === 0) return { req, entities: [] };
+  try {
+    // One table for the whole request, built from the messages joined: the
+    // same term becomes the same alias in the system prompt and in every
+    // user turn. Matching is deterministic longest-first, so redacting each
+    // message separately against that table replays the same aliases.
+    const texts: string[] = [];
+    for (const m of req.messages) {
+      if (typeof m.content === 'string') texts.push(m.content);
+      else if (Array.isArray(m.content)) {
+        for (const p of m.content) if (p.type === 'text') texts.push(p.text);
+      }
+    }
+    const { entities } = redact(texts.join('\n'), terms);
+    if (entities.length === 0) return { req, entities };
+    const maskText = (text: string): string => redact(text, entities).redacted;
+    const messages: ChatMessage[] = req.messages.map((m) => {
+      if (typeof m.content === 'string') return { ...m, content: maskText(m.content) };
+      if (Array.isArray(m.content)) {
+        return {
+          ...m,
+          content: m.content.map((p) => (p.type === 'text' ? { ...p, text: maskText(p.text) } : p)),
+        };
+      }
+      return m;
+    });
+    return { req: { ...req, messages }, entities };
+  } catch (err) {
+    throw new MeshError(err instanceof Error ? err.message : String(err), 400, 'invalid_request');
+  }
+}
+
+/** Put the aliases in a finished reply back the way the caller wrote them. */
+function restoreResponse(res: ChatResponse, entities: string[]): ChatResponse {
+  return {
+    ...res,
+    choices: res.choices.map((c) => {
+      const content = c.message.content;
+      if (typeof content === 'string') {
+        return { ...c, message: { ...c.message, content: restore(content, entities) } };
+      }
+      if (Array.isArray(content)) {
+        return {
+          ...c,
+          message: {
+            ...c.message,
+            content: content.map((p) => (p.type === 'text' ? { ...p, text: restore(p.text, entities) } : p)),
+          },
+        };
+      }
+      return c;
+    }),
+  };
 }
 
 interface AttemptSignal {
@@ -226,10 +299,22 @@ export class InferenceMesh {
   }
 
   async chat(req: ChatRequest, signal?: AbortSignal): Promise<ChatResponse> {
-    return this.run(req, signal, false) as Promise<ChatResponse>;
+    const masked = maskRequest(req);
+    const res = (await this.run(masked.req, signal, false)) as ChatResponse;
+    return masked.entities.length ? restoreResponse(res, masked.entities) : res;
   }
 
   async stream(req: ChatRequest, signal?: AbortSignal): Promise<StreamResult> {
+    if ((req.mesh?.mask?.length ?? 0) > 0) {
+      // Restoring aliases split across SSE chunks needs a buffering replacer
+      // that does not exist yet. Sending masked and returning aliases would
+      // corrupt the caller's text silently; refusing loudly instead.
+      throw new MeshError(
+        'mask with stream is not supported yet: call without stream, or without mask',
+        400,
+        'invalid_request',
+      );
+    }
     return this.run(req, signal, true) as Promise<StreamResult>;
   }
 

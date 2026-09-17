@@ -292,6 +292,16 @@ export interface RouteRequest {
   minContext?: number;
   /** Pin to a specific `provider/model`, bypassing scoring but not filters. */
   pin?: string;
+  /**
+   * Terms to alias locally before anything leaves this machine. The mesh
+   * redacts them from every message, sends the aliased prompt, and restores
+   * the reply — the table never leaves the process. See `src/redact.ts` for
+   * what that hides (the names) and what it does not (the shape of the
+   * question). Streaming with a mask is rejected: an alias split across SSE
+   * chunks cannot be restored honestly without a buffering replacer, which
+   * does not exist yet.
+   */
+  mask?: string[];
   /** Estimated tokens for this call; used for token-quota admission. */
   estimatedTokens?: number;
 }
