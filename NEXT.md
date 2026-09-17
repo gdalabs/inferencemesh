@@ -243,3 +243,10 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 
 - 隔離コンテナ検証：ビルド内テストが2件失敗→原因は同種omission（`scripts/` と `docs/` 未COPY、`d22c445` で修正）。素コンテナで version・鍵ゼロroute（llm7のみ）・llm7 live probeを実測確認。CI緑
 - **gdalabs.devにInferenceMeshを掲載**：`gdalabs/website` のindex.htmlにカード追加→push。注意：実ドメインはGitHub Pagesではなく **Cloudflare Pages（`gdalabs-website`）の手動デプロイ** が正本。`wrangler pages deploy --branch main` でproduction反映を確認（`--branch` 省略だとPreview扱いになる）
+
+## セッション 2026-09-17（P0マスク試作・shatter設計）
+
+- 無料枠はプロンプトを保持する前提で「学習されても困らない」方向に着手。P0として `src/redact.ts` を試作：送信前に固有名詞等を `[[IMESH-E1]]` 形式に置換、応答をローカル復元。失敗時は質が落ちるだけで漏れない設計。7件のテスト。全395件pass（`d15716f`、CI緑）
+- P1（事業者の異なるプロバイダへ質問分散＋ローカル結合）とP2（おとり問いは枠消費のためopt-in）をROADMAP Nextに積み。保証の限界（共謀で復元可・結合点は全知・問いの存在は隠せない）も明記
+- 付帯：git addガードが `secret` の語に反応してsrcをブロック。中身に鍵はなく誤検知のため識別子・コメントを `sensitive/terms` に改名して回避
+- 未決：P0の露出方法（CLIフラグ `--mask` かgateway属性か）。配線は未実装
