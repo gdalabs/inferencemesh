@@ -238,3 +238,8 @@ capability も context も privacy も記録できない。`stealth/*` を弾く
 - 鍵ゼロ経路の再確認：`probe --provider=llm7` 1/1 reachable（鍵なし実測応答）。他鍵は無消費で検証：OpenRouterは `/models` 200、Cloudflare tokenはverifyでactive。OrcaRouter鍵自体は有効だが無料枠はaccount gate停止中
 - 公開install検証：未認証で `install.sh | sh`（BIN_DIR=/tmp）→ checksum ok。鍵ゼロの `route free` は llm7/minimax-m2.7 のみを提示。公開ストーリー成立
 - ⚠️ `CLOUDFLARE_API_TOKEN` は `.env` になくプロセスenvにのみ存在。本人のCLI利用には `.env` への TOKEN＋ACCOUNT_ID 投入が必要
+
+## セッション 2026-09-16〜17（Docker検証・公開・gdalabs.dev掲載）
+
+- 隔離コンテナ検証：ビルド内テストが2件失敗→原因は同種omission（`scripts/` と `docs/` 未COPY、`d22c445` で修正）。素コンテナで version・鍵ゼロroute（llm7のみ）・llm7 live probeを実測確認。CI緑
+- **gdalabs.devにInferenceMeshを掲載**：`gdalabs/website` のindex.htmlにカード追加→push。注意：実ドメインはGitHub Pagesではなく **Cloudflare Pages（`gdalabs-website`）の手動デプロイ** が正本。`wrangler pages deploy --branch main` でproduction反映を確認（`--branch` 省略だとPreview扱いになる）
