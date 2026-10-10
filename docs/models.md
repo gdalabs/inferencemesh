@@ -5,7 +5,7 @@
 registry disagree, so a model that leaves a free tier cannot quietly leave
 this page saying it is still there.
 
-11 providers, 37 models, 30 of them enabled.
+11 providers, 48 models, 41 of them enabled.
 Every model here is free to call. A non-zero price without a verification
 date fails validation, and paid entries belong in your own copy of
 `providers.example.json`, never in this one.
@@ -106,13 +106,24 @@ Sign up: https://dash.cloudflare.com/profile/api-tokens
 
 ## openrouter-free
 
-**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 3/4
+**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 14/15
 
 | | Model | Context | Capabilities | Quota | Quality | Price |
 |---|---|---:|---|---|---:|---|
 | ✓ | `nvidia/nemotron-3-ultra-550b-a55b:free` | 1,000,000 | text, code, json | 20/min · 50/day | 0.84 | free |
 | ✓ | `nvidia/nemotron-3-super-120b-a12b:free` | 262,144 | text, code, json | 20/min · 50/day | 0.76 | free |
 | ✓ | `google/gemma-4-31b-it:free` | 262,144 | text, code, vision, json | 20/min · 50/day | 0.70 | free |
+| ✓ | `nvidia/nemotron-3.5-lightning:free` | 1,000,000 | text | 20/min · 50/day | — | free |
+| ✓ | `google/gemma-4-26b-a4b-it:free` | 262,144 | text | 20/min · 50/day | — | free |
+| ✓ | `poolside/laguna-s-2.1:free` | 262,144 | text | 20/min · 50/day | — | free |
+| ✓ | `poolside/laguna-xs-2.1:free` | 262,144 | text | 20/min · 50/day | — | free |
+| ✓ | `cohere/north-mini-code:free` | 256,000 | text | 20/min · 50/day | — | free |
+| ✓ | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | 256,000 | text | 20/min · 50/day | — | free |
+| ✓ | `nvidia/nemotron-3.5-content-safety:free` | 128,000 | text | 20/min · 50/day | — | free |
+| ✓ | `dots-studio/dots-3-note-preview:free` | 512,000 | text | 20/min · 50/day | — | free |
+| ✓ | `liquid/lfm-2.5-2.6b:free` | 65,536 | text | 20/min · 50/day | — | free |
+| ✓ | `apodex/apodex-1.1-mini:free` | 262,144 | text | 20/min · 50/day | — | free |
+| ✓ | `inclusionai/ling-3.1-flash` | 262,144 | text | — | — | free |
 | ✗ | `openai/gpt-oss-20b:free` | 131,072 | text, code, json | 20/min · 50/day | 0.60 | free |
 
 Sign up: https://openrouter.ai/keys

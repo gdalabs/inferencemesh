@@ -958,8 +958,12 @@
       "$comment": [
         "OpenRouter ':free' ids are the fastest-rotting entries in this file — a model",
         "moves off the free tier without any announcement and starts answering 404.",
-        "The ids below were confirmed free and reachable on 2026-08-16 by",
-        "`inferencemesh probe`. Re-run it before trusting them.",
+        "The first three ids below were confirmed free and reachable on 2026-08-16 by",
+        "`inferencemesh probe`; eleven more were confirmed reachable on 2026-10-10.",
+        "thinkingmachines/inkling:free and inkling-small:free answered 403",
+        "'only available on agentic harnesses' and were NOT added — probe decides.",
+        "openrouter/free is excluded on purpose: an auto-router with no stable",
+        "capability, context or privacy to record (same reason as orcarouter/free).",
         "Refresh the list of what is currently free with:",
         "  curl -s https://openrouter.ai/api/v1/models | jq -r '.data[]|select(.id|endswith(\":free\"))|.id'"
       ],
@@ -1044,6 +1048,191 @@
           "quota": {
             "requestsPerMinute": 20,
             "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "nvidia/nemotron-3.5-lightning:free",
+          "label": "Nemotron 3.5 Lightning (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "google/gemma-4-26b-a4b-it:free",
+          "label": "Gemma 4 26B (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "poolside/laguna-s-2.1:free",
+          "label": "Laguna S 2.1 (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "expiresAt": "2026-10-31",
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "poolside/laguna-xs-2.1:free",
+          "label": "Laguna XS 2.1 (OpenRouter free)",
+          "note": "2026-10-10 probe: first attempt 429, retry reachable; only text observed",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "expiresAt": "2026-10-31",
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "cohere/north-mini-code:free",
+          "label": "North Mini Code (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; code NOT observed (probe sends text only), so no code capability",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 256000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "label": "Nemotron 3 Nano Omni (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 256000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "nvidia/nemotron-3.5-content-safety:free",
+          "label": "Nemotron 3.5 Content Safety (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable (it is a safety classifier, usefulness unrated)",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 128000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "dots-studio/dots-3-note-preview:free",
+          "label": "Dots 3 Note Preview (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 512000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "liquid/lfm-2.5-2.6b:free",
+          "label": "LFM 2.5 2.6B (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 65536,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "apodex/apodex-1.1-mini:free",
+          "label": "Apodex 1.1 Mini (OpenRouter free)",
+          "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
+          "id": "inclusionai/ling-3.1-flash",
+          "label": "Ling 3.1 Flash (OpenRouter, zero-price, no :free suffix)",
+          "note": "2026-10-10 probe: reachable. No :free suffix so the 20/50 free-variant cap may not apply; quota left unset rather than guessed",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 262144,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
           }
         },
         {
