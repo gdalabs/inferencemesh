@@ -149,8 +149,14 @@ describe('cli — the offline commands still work', () => {
   test('the whole output survives a pipe', async () => {
     // process.exit() truncates piped stdout; the CLI sets process.exitCode
     // instead. execFile reads through a pipe, so a regression shows up here.
+    // The trailer is not always a ranked line: models with an announced end
+    // date add an "ending soon" section after it.
     const r = await cli(['route', 'free']);
-    assert.match(r.out.trimEnd(), /\$[\d.]+\/MTok\s+\w+$/, 'the last line is complete');
+    assert.match(
+      r.out.trimEnd(),
+      /(\$[\d.]+\/MTok\s+\w+|\(\d+ day\(s\) away\)|still listed, so probe it)$/,
+      'the last line is complete',
+    );
   });
 });
 
