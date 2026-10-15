@@ -1068,6 +1068,23 @@
           }
         },
         {
+          "id": "nvidia/nemotron-3.5-super-vl:free",
+          "label": "Nemotron 3.5 Super VL (OpenRouter free)",
+          "note": "2026-10-15 probe: reachable. Catalog claims image/video input but only text observed, so no vision capability until measured",
+          "capabilities": [
+            "text"
+          ],
+          "contextWindow": 1000000,
+          "price": {
+            "inPerMTok": 0,
+            "outPerMTok": 0
+          },
+          "quota": {
+            "requestsPerMinute": 20,
+            "requestsPerDay": 50
+          }
+        },
+        {
           "id": "google/gemma-4-26b-a4b-it:free",
           "label": "Gemma 4 26B (OpenRouter free)",
           "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",

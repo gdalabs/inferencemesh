@@ -5,7 +5,7 @@
 registry disagree, so a model that leaves a free tier cannot quietly leave
 this page saying it is still there.
 
-11 providers, 48 models, 39 of them enabled.
+11 providers, 49 models, 40 of them enabled.
 Every model here is free to call. A non-zero price without a verification
 date fails validation, and paid entries belong in your own copy of
 `providers.example.json`, never in this one.
@@ -106,7 +106,7 @@ Sign up: https://dash.cloudflare.com/profile/api-tokens
 
 ## openrouter-free
 
-**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 12/15
+**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 13/16
 
 | | Model | Context | Capabilities | Quota | Quality | Price |
 |---|---|---:|---|---|---:|---|
@@ -114,6 +114,7 @@ Sign up: https://dash.cloudflare.com/profile/api-tokens
 | ✓ | `nvidia/nemotron-3-super-120b-a12b:free` | 262,144 | text, code, json | 20/min · 50/day | 0.76 | free |
 | ✓ | `google/gemma-4-31b-it:free` | 262,144 | text, code, vision, json | 20/min · 50/day | 0.70 | free |
 | ✓ | `nvidia/nemotron-3.5-lightning:free` | 1,000,000 | text | 20/min · 50/day | — | free |
+| ✓ | `nvidia/nemotron-3.5-super-vl:free` | 1,000,000 | text | 20/min · 50/day | — | free |
 | ✓ | `google/gemma-4-26b-a4b-it:free` | 262,144 | text | 20/min · 50/day | — | free |
 | ✓ | `poolside/laguna-s-2.1:free` | 262,144 | text | 20/min · 50/day | — | free |
 | ✓ | `poolside/laguna-xs-2.1:free` | 262,144 | text | 20/min · 50/day | — | free |
