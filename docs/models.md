@@ -5,7 +5,7 @@
 registry disagree, so a model that leaves a free tier cannot quietly leave
 this page saying it is still there.
 
-11 providers, 48 models, 41 of them enabled.
+11 providers, 48 models, 39 of them enabled.
 Every model here is free to call. A non-zero price without a verification
 date fails validation, and paid entries belong in your own copy of
 `providers.example.json`, never in this one.
@@ -106,7 +106,7 @@ Sign up: https://dash.cloudflare.com/profile/api-tokens
 
 ## openrouter-free
 
-**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 14/15
+**Key:** `OPENROUTER_API_KEY` · **Privacy tier:** `internal` · **Enabled:** 12/15
 
 | | Model | Context | Capabilities | Quota | Quality | Price |
 |---|---|---:|---|---|---:|---|
@@ -122,8 +122,8 @@ Sign up: https://dash.cloudflare.com/profile/api-tokens
 | ✓ | `nvidia/nemotron-3.5-content-safety:free` | 128,000 | text | 20/min · 50/day | — | free |
 | ✓ | `dots-studio/dots-3-note-preview:free` | 512,000 | text | 20/min · 50/day | — | free |
 | ✓ | `liquid/lfm-2.5-2.6b:free` | 65,536 | text | 20/min · 50/day | — | free |
-| ✓ | `apodex/apodex-1.1-mini:free` | 262,144 | text | 20/min · 50/day | — | free |
-| ✓ | `inclusionai/ling-3.1-flash` | 262,144 | text | — | — | free |
+| ✗ | `apodex/apodex-1.1-mini:free` | 262,144 | text | 20/min · 50/day | — | free |
+| ✗ | `inclusionai/ling-3.1-flash` | 262,144 | text | — | — | free |
 | ✗ | `openai/gpt-oss-20b:free` | 131,072 | text, code, json | 20/min · 50/day | 0.60 | free |
 
 Sign up: https://openrouter.ai/keys

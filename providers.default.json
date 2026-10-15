@@ -1209,6 +1209,8 @@
           "id": "apodex/apodex-1.1-mini:free",
           "label": "Apodex 1.1 Mini (OpenRouter free)",
           "note": "2026-10-10 probe: reachable; only text observed so capabilities stay at text",
+          "disabled": true,
+          "$comment": "2026-10-15: catalog no longer lists this id at all and probe got 404 'No endpoints found'. Left the free tier 5 days after registration; disabled rather than deleted so the disappearance stays visible.",
           "capabilities": [
             "text"
           ],
@@ -1226,6 +1228,8 @@
           "id": "inclusionai/ling-3.1-flash",
           "label": "Ling 3.1 Flash (OpenRouter, zero-price, no :free suffix)",
           "note": "2026-10-10 probe: reachable. No :free suffix so the 20/50 free-variant cap may not apply; quota left unset rather than guessed",
+          "disabled": true,
+          "$comment": "2026-10-15: catalog now prices this at $0.000000075 in / $0.000000225 out — left the free tier 5 days after registration. Paid entries are not shipped, so disabled rather than repriced; probe still answers, which is expected for a paid id.",
           "capabilities": [
             "text"
           ],
