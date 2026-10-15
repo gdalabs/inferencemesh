@@ -26,6 +26,11 @@
  *                   to Qwen3.8-Flash-Next); authentication and model ids are
  *                   unconfirmed. Re-check here after maintenance, and add it to
  *                   CATALOGS only once a model endpoint returns a usable list.
+ *   freeseek      — https://freeseek.1lm.io/v1 is a free DeepSeek gateway, but
+ *                   every endpoint (including /v1/models) demands a credential
+ *                   minted by solving a proof-of-work puzzle in their CLI.
+ *                   A plain OpenAI adapter cannot pass the gate, so there is no
+ *                   keyless catalog to poll. Revisit only with a PoW-solving client.
  *
  * Findings are candidates, not conclusions. A provider that appears here still
  * has to survive `inferencemesh probe` before it earns a registry entry.
@@ -51,6 +56,10 @@ const CATALOGS = [
   { id: 'llm7', url: 'https://api.llm7.io/v1/models' },
   { id: 'modelscope', url: 'https://api-inference.modelscope.cn/v1/models' },
   { id: 'ovhcloud', url: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models' },
+  // BazaarLink serves a $0 DeepSeek V4 Flash variant (found via X chatter on
+  // 2026-10-15, confirmed against this catalog the same day). Keyless catalog,
+  // keyed inference — so discovery can watch it but probe needs BAZAARLINK_API_KEY.
+  { id: 'bazaarlink', url: 'https://api.bazaarlink.ai/v1/models', freeOnly: true },
 ];
 
 async function getJson(url, timeoutMs = 25_000) {
