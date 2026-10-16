@@ -336,7 +336,7 @@ inferencemesh route free --min-context=200000
 | `INFERENCEMESH_SHOTS` | `.inferencemesh/shots` | 设置指引的截图目录，命名为 `<provider>-<n>.png`。没有也没关系——页面会自己画图 |
 | `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | 配额计数。**请放在卷上**，否则每次重启都会忘记这一天已经花掉多少 |
 | `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | 当*每一个*候选都在忙时排队等待的时长。`0` 表示不等待、直接失败 |
-| `INFERENCEMESH_LANG` | *(系统语言)* | 设置向导的语言（`ja` / `en`），默认取系统 locale |
+| `INFERENCEMESH_LANG` | *(系统语言)* | 设置向导的语言（`en` / `zh` / `ja`），默认取系统 locale |
 
 提供方密钥各有自己的变量，由每条记录的 `apiKeyEnv` 指定——`GROQ_API_KEY`、
 `OPENROUTER_API_KEY` 等等。缺少密钥的提供方会被跳过，并在 `/healthz` 中列名。

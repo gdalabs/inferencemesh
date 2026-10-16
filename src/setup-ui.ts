@@ -15,7 +15,7 @@
  * ## The pictures
  *
  * Each step of a provider's guide gets a diagram of the screen it describes,
- * drawn here as SVG from the step's own text: the label inside 「」 becomes the
+ * drawn here as SVG from the step's own text: a quoted label becomes the
  * highlighted control. Nothing is invented — the words were already in the
  * registry, this only draws them — and every diagram is captioned as a diagram,
  * because a drawing presented as a screenshot is a lie about how current it is.
@@ -28,11 +28,11 @@
  */
 
 export const SETUP_HTML = /* html */ `<!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>InferenceMesh — セットアップ</title>
+<title>InferenceMesh — Setup</title>
 <style>
 :root{
   --bg:#f7f7f8; --panel:#fff; --fg:#16171a; --mut:#5f636b; --faint:#8b8f98;
@@ -49,7 +49,7 @@ export const SETUP_HTML = /* html */ `<!doctype html>
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);
-  font:16px/1.75 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+  font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .wrap{max-width:820px;margin:0 auto;padding:2.5rem 1.1rem 6rem}
 h1{font-size:1.6rem;letter-spacing:-.01em;margin:0 0 .35rem}
 .sub{color:var(--mut);margin:0 0 1.6rem}
@@ -122,8 +122,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
 </head>
 <body><div class="wrap">
 
-<h1>InferenceMesh — セットアップ</h1>
-<p class="sub">無料のAIモデルを使えるようにします。クレジットカードは要りません。</p>
+<h1>InferenceMesh — Setup</h1>
+<p class="sub">Set up free AI models. No credit card required.</p>
 
 <div id="prog" hidden>
   <div class="bar"><i id="bari"></i></div>
@@ -131,19 +131,19 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
 </div>
 
 <div class="note">
-  <b>あなたの鍵は、このパソコンから出ません。</b>
+  <b>Your keys stay between your server and their issuing providers.</b>
   <ul>
-    <li>貼った鍵は、この画面からあなた自身のサーバー（いま開いているこのアドレス）にだけ送られます</li>
-    <li>そこから先は、その鍵の発行元（Groq や NVIDIA など）以外には送られません</li>
-    <li>保存後は画面に表示されません。「設定済み」とだけ出ます</li>
-    <li>このソフトは全部オープンソースで、外部に送信する仕組みは入っていません</li>
+    <li>This page sends keys only to your own server at the address you opened.</li>
+    <li>Your server sends each key only to its issuing provider, such as Groq or NVIDIA.</li>
+    <li>Saved keys are never returned to this page. It only shows their configured status.</li>
+    <li>The software is open source and has no hosted telemetry component.</li>
   </ul>
 </div>
 
 <div id="gate" hidden>
-  <b>アクセストークンが必要です。</b>
-  <p class="hint">サーバーを起動したときに表示された <code>INFERENCEMESH_TOKENS</code> の値を貼ってください。</p>
-  <div class="row"><input id="tok" type="password" placeholder="アクセストークン" autocomplete="off"><button id="tokgo">続ける</button></div>
+  <b>An access token is required.</b>
+  <p class="hint">Paste an <code>INFERENCEMESH_TOKENS</code> value from your server startup output.</p>
+  <div class="row"><input id="tok" type="password" placeholder="Access token" autocomplete="off"><button id="tokgo">Continue</button></div>
   <div class="msg" id="tokmsg"></div>
 </div>
 
@@ -197,7 +197,7 @@ const arrow = (x, y, text) =>
   '<text x="' + (x + 54) + '" y="' + (y + 5) + '" font-size="12" fill="var(--acc)">' + esc(text) + '</text>';
 
 function controlOf(text) {
-  const m = String(text).match(/[「『"']([^」』"']{2,40})[」』"']/);
+  const m = String(text).match(/["']([^"']{2,40})["']/);
   return m ? m[1] : null;
 }
 function hostIn(text) {
@@ -208,12 +208,12 @@ function hostOf(url) {
   try { return new URL(url).host; } catch { return ''; }
 }
 function prefixIn(text, fallback) {
-  const m = String(text).match(/([A-Za-z][A-Za-z0-9]*[-_](?:v\\d+-)?)\\s*で始まる/);
+  const m = String(text).match(/(?:Copy the )([A-Za-z][A-Za-z0-9_-]+)[…]/i);
   return (m ? m[1] : null) || fallback || null;
 }
 
 /** Open an address. */
-const dOpen = (host) => svg(host + ' を開く', CH.frame('', 
+const dOpen = (host) => svg('Open ' + host, CH.frame('',
   '<rect x="66" y="8" width="290" height="16" rx="8" fill="var(--panel)" stroke="var(--line)"/>' +
   '<text x="76" y="20" font-size="11" fill="var(--fg)">' + esc(host) + '</text>' +
   '<rect x="24" y="58" width="180" height="10" rx="5" fill="var(--line)"/>' +
@@ -222,9 +222,9 @@ const dOpen = (host) => svg(host + ' を開く', CH.frame('',
   arrow(356, 16, '')));
 
 /** Sign in. */
-const dSignin = (host) => svg('ログイン', CH.frame(host,
+const dSignin = (host) => svg('Sign in', CH.frame(host,
   '<rect x="120" y="52" width="180" height="110" rx="10" fill="var(--bg)" stroke="var(--line)"/>' +
-  '<text x="210" y="76" text-anchor="middle" font-size="12" fill="var(--mut)">ログイン</text>' +
+  '<text x="210" y="76" text-anchor="middle" font-size="12" fill="var(--mut)">Sign in</text>' +
   '<rect x="138" y="88" width="144" height="18" rx="6" fill="var(--panel)" stroke="var(--line)"/>' +
   '<rect x="138" y="112" width="144" height="18" rx="6" fill="var(--panel)" stroke="var(--line)"/>' +
   '<rect x="138" y="138" width="144" height="16" rx="8" fill="var(--acc)"/>'));
@@ -251,24 +251,24 @@ function dMenu(parts, host) {
 /** Press a named control. */
 function dPress(label, host) {
   const w = Math.min(300, 22 + label.length * 9.5), x = 40, y = 104;
-  return svg(label + ' を押す', CH.frame(host,
+  return svg('Press ' + label, CH.frame(host,
     '<rect x="24" y="52" width="150" height="9" rx="4" fill="var(--line)"/>' +
     '<rect x="24" y="72" width="240" height="7" rx="3" fill="var(--line2)"/>' +
     '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="38" rx="9" fill="var(--acc)"/>' +
     '<text x="' + (x + w / 2) + '" y="' + (y + 24) + '" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">' +
       esc(label) + '</text>' +
-    arrow(x + w, y + 19, 'ここ')));
+    arrow(x + w, y + 19, 'Here')));
 }
 
 /** Copy the string that appears. */
 function dCopy(prefix) {
   const shown = (prefix || 'sk-') + '••••••••••••••••';
-  return svg('表示された鍵をコピーする', CH.frame('',
+  return svg('Copy the key shown', CH.frame('',
     '<rect x="24" y="58" width="372" height="52" rx="9" fill="var(--bg)" stroke="var(--line)"/>' +
     '<text x="40" y="90" font-size="13" font-family="ui-monospace,monospace" fill="var(--fg)">' + esc(shown) + '</text>' +
     '<rect x="288" y="122" width="108" height="30" rx="8" fill="var(--acc)"/>' +
-    '<text x="342" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">コピー</text>' +
-    '<text x="24" y="142" font-size="11" fill="var(--bad)">一度しか表示されません</text>'));
+    '<text x="342" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Copy</text>' +
+    '<text x="24" y="142" font-size="11" fill="var(--bad)">Shown only once</text>'));
 }
 
 
@@ -276,13 +276,13 @@ function dCopy(prefix) {
 function dFind(term, side) {
   const right = side !== 'left';
   const px = right ? 268 : 24;
-  return svg(term + ' の場所', CH.frame('',
+  return svg('Find ' + term, CH.frame('',
     '<rect x="' + (right ? 24 : 152) + '" y="44" width="244" height="128" rx="8" fill="var(--bg)" stroke="var(--line2)"/>' +
     '<rect x="' + px + '" y="44" width="128" height="128" rx="8" fill="var(--panel)" stroke="var(--acc)"/>' +
     '<text x="' + (px + 64) + '" y="100" text-anchor="middle" font-size="12" font-weight="600" fill="var(--acc)">' +
       esc(term) + '</text>' +
     '<text x="' + (px + 64) + '" y="120" text-anchor="middle" font-size="10" fill="var(--faint)">' +
-      (right ? 'この辺り' : 'この辺り') + '</text>'));
+      'In this area' + '</text>'));
 }
 
 /**
@@ -295,20 +295,16 @@ function diagramFor(step, ctx) {
   const host = hostIn(text) || ctx.host;
   if (label) return dPress(label, hostIn(text) ? '' : ctx.host);
   if (text.includes('→')) {
-    const parts = text.split('→').map(t => t.replace(/^[^A-Za-z0-9ぁ-んァ-ヶ一-龠]+/, '').trim()).filter(Boolean);
+    const parts = text.split('→').map(t => t.trim()).filter(Boolean);
     if (parts.length > 1) return dMenu(parts, ctx.host);
   }
-  if (/コピー|一度だけ|一度しか/.test(text)) return dCopy(prefixIn(text, ctx.keyPrefix));
-  if (/ログイン|サインイン|アカウントを作|Login|Sign ?in/i.test(text)) return dSignin(host);
+  if (/copy|shown only once/i.test(text)) return dCopy(prefixIn(text, ctx.keyPrefix));
+  if (/sign.?in|log.?in|create.*account/i.test(text)) return dSignin(host);
   if (hostIn(text)) return dOpen(hostIn(text));
-  // "右上のメニューから API Keys を開く" — the thing being opened is a place in
-  // the interface, not an address, so it is drawn as one.
-  const opens = text.match(/([A-Za-z][A-Za-z0-9 ]{1,20}|[ぁ-んァ-ヶ一-龠]{2,10})\\s*を開く/);
+  const opens = text.match(/open ([A-Za-z][A-Za-z0-9 ]{1,30})(?: from|$)/i);
   if (opens) return dMenu([opens[1].trim()], ctx.host);
-  // "Account ID（ダッシュボード右側に表示）も必要です" — the step says where.
-  const where = text.match(/([A-Za-z][A-Za-z0-9 ]{1,20}|[ぁ-んァ-ヶ一-龠]{2,10})\\s*[（(][^）)]*(右|左)[^）)]*[）)]/);
-  if (where) return dFind(where[1].trim(), where[2] === '左' ? 'left' : 'right');
-  if (/表示され/.test(text)) return dCopy(prefixIn(text, ctx.keyPrefix));
+  const where = text.match(/(Account ID).*shown/i);
+  if (where) return dFind(where[1], 'right');
   return null;
 }
 
@@ -323,7 +319,7 @@ function stepList(p, steps) {
     li.innerHTML = '<div class="n">' + (i + 1) + '</div><div>' +
       '<p class="stxt">' + esc(s) + '</p>' +
       (pic ? '<figure data-i="' + i + '">' + pic +
-        '<figcaption>イメージ図です。実際の画面とは異なる場合があります。</figcaption></figure>' : '') +
+        '<figcaption>Illustration; the actual screen may differ.</figcaption></figure>' : '') +
       '</div>';
     ol.appendChild(li);
   });
@@ -338,8 +334,8 @@ function stepList(p, steps) {
       ol.children[i].lastElementChild.appendChild(f);
       return f;
     })();
-    fig.innerHTML = '<img alt="手順 ' + (i + 1) + ' の画面" src="' + url + '">' +
-      '<figcaption>実際の画面（この端末に置かれたもの）</figcaption>';
+    fig.innerHTML = '<img alt="Screenshot for step ' + (i + 1) + '" src="' + url + '">' +
+      '<figcaption>Screenshot stored on this server</figcaption>';
   });
   return ol;
 }
@@ -348,13 +344,13 @@ function providerCard(p) {
   const el = document.createElement('div');
   const settled = p.configured || p.keyless;
   el.className = 'p' + (settled ? ' done' : '');
-  const steps = (p.signupSteps && (p.signupSteps.ja || p.signupSteps.en)) || [];
-  const tag = p.keyless ? '<span class="tag ok">鍵なしで使えます</span>'
-            : p.configured ? '<span class="tag ok">設定済み</span>'
-            : '<span class="tag todo">未設定</span>';
+  const steps = (p.signupSteps && p.signupSteps.en) || [];
+  const tag = p.keyless ? '<span class="tag ok">No key needed</span>'
+            : p.configured ? '<span class="tag ok">Configured</span>'
+            : '<span class="tag todo">Not configured</span>';
 
   const head = '<div class="head"><h2 class="name">' + esc(p.id) + '</h2>' + tag +
-    '<span class="tag">モデル ' + p.models + '</span></div>' +
+    '<span class="tag">Models: ' + p.models + '</span></div>' +
     (p.summary ? '<p class="desc">' + esc(p.summary) + '</p>' : '') +
     (p.freeTierNote ? '<p class="desc">' + esc(p.freeTierNote) + '</p>' : '');
 
@@ -362,20 +358,20 @@ function providerCard(p) {
 
   el.innerHTML = head +
     (p.signupUrl ? '<p class="open"><a href="' + escA(p.signupUrl) + '" target="_blank" rel="noopener noreferrer">' +
-      esc(hostOf(p.signupUrl)) + ' を開く →</a></p>' : '') +
+      esc(hostOf(p.signupUrl)) + ' — open →</a></p>' : '') +
     '<div class="row">' +
       (p.accountIdEnv ? '<input class="acct" placeholder="Account ID" autocomplete="off">' : '') +
-      '<input class="key" type="password" autocomplete="off" placeholder="ここに鍵を貼る' +
-        (p.keyPrefix ? '（' + escA(p.keyPrefix) + '… で始まります）' : '') + '">' +
-      '<button class="go">確認して保存</button>' +
-      '<button class="ghost peek" type="button" title="入力した鍵を表示">表示</button>' +
+      '<input class="key" type="password" autocomplete="off" placeholder="Paste your key here' +
+        (p.keyPrefix ? ' (starts with ' + escA(p.keyPrefix) + '…)' : '') + '">' +
+      '<button class="go">Verify and save</button>' +
+      '<button class="ghost peek" type="button" title="Show entered key">Show</button>' +
     '</div>' +
     '<div class="msg"></div>';
 
   if (steps.length) {
     const d = document.createElement('details');
     d.open = true;
-    d.innerHTML = '<summary>鍵の取り方（' + steps.length + ' ステップ）</summary>';
+    d.innerHTML = '<summary>Get a key (' + steps.length + ' steps)</summary>';
     d.appendChild(stepList(p, steps));
     el.appendChild(d);
   }
@@ -383,30 +379,30 @@ function providerCard(p) {
   const btn = $('.go', el), key = $('.key', el), acct = $('.acct', el), msg = $('.msg', el), peek = $('.peek', el);
   peek.onclick = () => {
     key.type = key.type === 'password' ? 'text' : 'password';
-    peek.textContent = key.type === 'password' ? '表示' : '隠す';
+    peek.textContent = key.type === 'password' ? 'Show' : 'Hide';
   };
   btn.onclick = async () => {
     const value = key.value.trim();
-    if (!value) { msg.className = 'msg bad'; msg.textContent = '鍵を貼ってください。'; key.focus(); return; }
+    if (!value) { msg.className = 'msg bad'; msg.textContent = 'Please paste a key.'; key.focus(); return; }
     // Shape check before spending a network round trip: catches "copied the
     // wrong string off the page", which is the common mistake.
     if (p.keyPrefix && !value.startsWith(p.keyPrefix)) {
       msg.className = 'msg bad';
-      msg.textContent = 'この鍵は ' + p.keyPrefix + ' で始まるはずです。別の文字列をコピーしていませんか？';
+      msg.textContent = 'This key should start with ' + p.keyPrefix + '. Check that you copied the correct value.';
       return;
     }
-    btn.disabled = true; msg.className = 'msg'; msg.textContent = '確認しています… 実際に1回だけ質問を送っています。';
+    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Verifying… Sending one test request.';
     try {
       const body = {providerId: p.id, key: value};
       if (acct && acct.value.trim()) body.accountId = acct.value.trim();
       const r = await api('/v1/keys', {method:'POST', body: JSON.stringify(body)});
       if (r.ok) {
         msg.className = 'msg ok';
-        msg.textContent = '使えました（' + r.ms + 'ms）。保存しました。';
+        msg.textContent = 'Verified in ' + r.ms + 'ms. Saved.';
         setTimeout(load, 700);
       } else {
         msg.className = 'msg bad';
-        msg.textContent = 'この鍵では動きませんでした: ' + (r.why || '理由不明');
+        msg.textContent = 'This key did not work: ' + (r.why || 'Unknown reason');
         btn.disabled = false;
       }
     } catch (e) {
@@ -430,11 +426,11 @@ async function load() {
     const settled = d.providers.filter(p => p.configured || p.keyless).length;
     $('#prog').hidden = false;
     $('#bari').style.width = Math.round((settled / Math.max(1, d.providers.length)) * 100) + '%';
-    $('#cnt').textContent = settled + ' / ' + d.providers.length + ' 使える状態';
-    $('#usable').textContent = 'いま選べるモデル ' + d.candidates + ' 件';
+    $('#cnt').textContent = settled + ' / ' + d.providers.length + ' ready';
+    $('#usable').textContent = 'Available models: ' + d.candidates;
     $('#foot').textContent = d.usable.length
-      ? '有効: ' + d.usable.join(', ')
-      : 'まだ1つも有効になっていません。上のどれか1つで十分です。';
+      ? 'Enabled: ' + d.usable.join(', ')
+      : 'No providers enabled yet. Configuring one is enough.';
     $('#gate').hidden = true;
   } catch (e) {
     if (String(e.message) === 'unauthorized') {

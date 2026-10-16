@@ -42,7 +42,7 @@ function pageScript(): PageFns {
 }
 
 async function shippedProviders(): Promise<
-  Array<{ id: string; keyPrefix?: string; signupSteps?: { ja?: string[] } }>
+  Array<{ id: string; keyPrefix?: string; signupSteps?: { en?: string[] } }>
 > {
   const raw = await readFile(new URL('../../providers.default.json', import.meta.url), 'utf8');
   return (JSON.parse(raw) as { providers: Array<Record<string, never>> }).providers as never;
@@ -57,7 +57,7 @@ describe('setup page diagrams', () => {
     const { diagramFor } = pageScript();
     const missing: string[] = [];
     for (const p of await shippedProviders()) {
-      for (const s of p.signupSteps?.ja ?? []) {
+      for (const s of p.signupSteps?.en ?? []) {
         const ctx = { host: '', ...(p.keyPrefix ? { keyPrefix: p.keyPrefix } : {}) };
         if (!diagramFor(s, ctx)) missing.push(`${p.id}: ${s}`);
       }
@@ -67,21 +67,21 @@ describe('setup page diagrams', () => {
 
   test('a step naming a control highlights that exact control', async () => {
     const { diagramFor } = pageScript();
-    const svg = diagramFor('「Create API Key」を押す', { host: 'console.groq.com' }) as string;
+    const svg = diagramFor('Press "Create API Key"', { host: 'console.groq.com' }) as string;
     assert.match(svg, /Create API Key/);
-    assert.match(svg, /ここ/, 'and points at it');
+    assert.match(svg, /Here/, 'and points at it');
   });
 
   test('nothing is drawn for a step that describes no screen', async () => {
     // A decorative box that means nothing is worse than a paragraph alone.
     const { diagramFor } = pageScript();
-    assert.equal(diagramFor('しばらく待ちます', { host: '' }), null);
+    assert.equal(diagramFor('Wait a moment', { host: '' }), null);
   });
 
   test('every drawing stays inside its frame and carries no active content', async () => {
     const { diagramFor } = pageScript();
     for (const p of await shippedProviders()) {
-      for (const s of p.signupSteps?.ja ?? []) {
+      for (const s of p.signupSteps?.en ?? []) {
         const svg = diagramFor(s, { host: '', ...(p.keyPrefix ? { keyPrefix: p.keyPrefix } : {}) });
         if (!svg) continue;
         assert.match(svg, /viewBox="0 0 420 190"/, s);
@@ -101,4 +101,11 @@ describe('setup page diagrams', () => {
     const { escA } = pageScript();
     assert.equal(escA('a"b\'c'), 'a&quot;b&#39;c');
   });
+});
+
+
+test('web setup always uses English, including its provider guides', () => {
+  assert.match(SETUP_HTML, /<html lang="en">/);
+  assert.doesNotMatch(SETUP_HTML, /[\u3040-\u30ff\u4e00-\u9fff]/u);
+  assert.match(SETUP_HTML, /p\.signupSteps\.en/);
 });

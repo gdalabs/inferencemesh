@@ -376,7 +376,7 @@ Every setting is an environment variable; the server reads no config file of its
 | `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | Quota counters. Put it on a volume, or every restart forgets what the day has already spent. |
 | `INFERENCEMESH_SHOTS` | `.inferencemesh/shots` | Screenshots for the setup guides, named `<provider>-<n>.png`. Absent is fine — the page draws its own diagrams instead. |
 | `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | How long to queue when *every* candidate is busy. `0` fails instead of waiting. |
-| `INFERENCEMESH_LANG` | *(locale)* | `ja` or `en` for the setup wizard. Defaults to the system locale. |
+| `INFERENCEMESH_LANG` | *(locale)* | `en`, `zh`, or `ja` for terminal setup. Uses a supported system locale, otherwise English. Browser setup is always English. |
 
 Provider keys are their own variables, named by each entry's `apiKeyEnv` — `GROQ_API_KEY`,
 `OPENROUTER_API_KEY`, and so on. A provider whose key is absent is skipped and named in `/healthz`.
@@ -592,3 +592,5 @@ that has never once fired is not known to work.
 ## License
 
 MIT © GDA Labs
+
+The browser setup page is always in English. Terminal setup supports English, Chinese, and Japanese through `INFERENCEMESH_LANG`. Provider metadata uses English; localized README files remain available.

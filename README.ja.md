@@ -393,7 +393,7 @@ inferencemesh route free --min-context=200000
 | `INFERENCEMESH_SHOTS` | `.inferencemesh/shots` | セットアップ手順のスクリーンショット置き場。`<provider>-<n>.png`。無くても構いません（図が描かれます） |
 | `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | クォータのカウンタ。**ボリュームに置いてください**。さもないと再起動のたびにその日の消費を忘れます |
 | `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | *すべての*候補が塞がっている時に待つ時間。`0` で待たずに失敗 |
-| `INFERENCEMESH_LANG` | *(ロケール)* | セットアップウィザードの言語（`ja` / `en`）。既定はシステムのロケール |
+| `INFERENCEMESH_LANG` | *(ロケール)* | セットアップウィザードの言語（`en` / `zh` / `ja`）。既定はシステムのロケール |
 
 プロバイダの鍵は各エントリの `apiKeyEnv` が名乗る変数です（`GROQ_API_KEY`、
 `OPENROUTER_API_KEY` など）。鍵が無いプロバイダは飛ばされ、`/healthz` に名前が出ます。

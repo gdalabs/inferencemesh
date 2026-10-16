@@ -1,259 +1,216 @@
 # NEXT — inferencemesh
 
-現在地点: ローカル main = origin/main = edfcce8（**未 push なし**・PRIVATE）。テスト366件 全pass。
-バンドル・単一バイナリ・コンテナの3形態で起動確認済み（コンテナからの実推論も通した）。
-最終セッション 2026-08-27（OrcaRouter 登録・口座単位 quota → push・CI green）。
+## Current handoff
 
-- 2026-08-27: 溜まっていた6本を push。CI（Node 20 / Node 22 / bundle smoke）は3ジョブとも green。
-  🔴 CI に警告が出ている: `actions/checkout@v4` と `actions/setup-node@v4` は Node 20 ランタイムで、
-  GitHub 側が Node 24 に強制昇格させている。**今は動いているが、v5 に上げるまで警告は消えない**
+The repository is public. See the dated checkpoints below for test counts and
+release state; older references to private visibility describe those checkpoints.
+All internal notes are maintained in English. The web setup page is English-only;
+the terminal wizard supports English, Chinese, and Japanese.
 
+## Pending decisions and work
 
-## Autonomous Session 2026-08-22
+- Probe the 18 unregistered free OpenRouter models before admitting them. A model
+  appearing in the catalog is not proof that its free tier works. Probes requiring
+  account quota need the operator's authorization.
+- The sample environment template is outdated: NVIDIA/ZAI/MODELSCOPE/OVH/LLM7 and
+  KEYS/LEDGER/PUBLIC_HEALTH settings are missing. The secrets hook blocks commands
+  naming that template. Leave it to the operator; do not bypass the hook.
+- Hindi and Marathi remain indistinguishable by script alone; vocabulary would be
+  needed. Belarusian is not distinguished from Ukrainian because `be` has not yet
+  been requested.
+- Hebrew, Greek, Armenian, Georgian, Bengali, and Tamil can be detected, but their
+  probe prompts are in English. This measures instruction following. Do not invent
+  prompts in languages that cannot be independently reviewed.
+- Measure remaining `maxConcurrent` limits rather than guessing. The llm7 limit of
+  1 was reproduced three times on 2026-08-22. Other providers require permission to
+  spend their quota. OrcaRouter uses a free but account-gated daily allowance.
+- Remaining catalog readers: NVIDIA, Chutes, ModelScope, OVHcloud. OpenRouter's
+  reader is implemented and keyless.
+- Run language probes for additional languages and compare with registry claims.
+- Design a representation for request-size limits. OrcaRouter's measured context
+  floors use ASCII; other scripts may hit the byte limit earlier.
+- OrcaRouter free access is stopped by `err_free_access_denied` (`retryable:false`).
+  Repeated requests cannot fix this. The operator must address the GitHub account
+  integration under console profile settings, then re-probe the remaining models.
+- The operator still needs to configure Cloudflare account credentials and the
+  Mistral key before live probes. Do not read credential files as part of handoff work.
+- Masking needs a successful live chat retry after provider recovery. llm7 returned
+  502/503 and OpenRouter returned 429; short probes succeeded but full chat did not.
+- Port 8910 was already occupied during live testing. Use an available port such as 8919.
 
-- Summary: 配布物（npm パッケージ・単一バイナリ・コンテナ・インストーラ）が
-  **どれも新規ユーザーの最初の一歩で壊れていた**のを実測で見つけて直した。
-  あわせて ROADMAP Now の1件（llm7 の同時実行上限）を実測で確定し、
-  「ドキュメントが黙って古くなる」箇所をテストで固定した。
-- Completed: 下の「完了」節に全件（commit 単位で 30 本、すべて push 済）
-- Files changed: `src/cli.ts` `src/setup.ts` `src/server/node.ts` `src/ledger.ts`
-  `src/config.ts` `src/registry.ts` `src/sync.ts` `src/catalogs.ts` `src/language-probe.ts`
-  `src/gateway.ts` `src/mesh.ts` `src/probe-report.ts`(新) `src/version.ts`(新)
-  `examples/worker.ts`(新) `Dockerfile` `install.sh` `package.json` `providers.default.json`
-  `.github/workflows/ci.yml`(新) `README.md` `ROADMAP.md` `CLAUDE.md` + テスト9ファイル
-- Validation: `npm test` 331件（Node 20 / Node 22 の両方で実行）/ クリーンビルド /
-  クローンして `npm ci` から再現 / `docker build` + コンテナ healthy /
-  `npm pack` → 空プロジェクトに install → bin・import・型定義 /
-  単一バイナリを実際にビルドして起動 / 公式 OpenAI SDK で4経路 /
-  `install.sh` を file:// のローカル配布物で全5経路
-- Git: gdalabs/inferencemesh (PRIVATE) / main / 30 commits / 全て push 済 / 未 push なし
-- Decisions:
-  - **llm7 の maxConcurrent=1 を registry に書いた**。鍵不要なので誰の無料枠も使わずに
-    測れる唯一の対象で、3回再現した。他プロバイダは本人が「その枠を使ってよい」と
-    決めるまで測らない
-  - **`sync` の新規プロバイダ枠を `public` に変更**（従来 `internal`）。機密性は人間の判断
-  - **he/el/hy/ka/bn/ta のプロンプトは書かなかった**。検証できない言語の文面を自作すると
-    測定器そのものが検証不能になる
-  - **`.env.example` は触っていない**。secrets フックがそのファイル名を含むコマンドを
-    止めるため、回避せず本人の手に残した
-- Pending approval: **公開（public 化）の判断**。監査は通っている（下記）
-- Problems / Unresolved:
-  - リリースワークフローは**一度も走っていない**（タグが無い）。最初のタグが唯一の検証機会
-  - ヒンディー語とマラーティー語は判定不能のまま（区別する文字が無い）
-  - 未登録の無料モデル18件は probe するまで採用しない（鍵が要る）
-- Next: ①公開判断 → ②最初のタグでリリース経路を検証 → ③OpenRouter の18件を probe して採用
-- Cost requests: 無し（今日の作業は全て無料経路のみ。OPENROUTER_API_KEY は未使用）
+## Autonomous session 2026-08-22
 
-## P1
+Found and fixed first-run failures in the npm package, standalone executable,
+container, and installer. Also measured llm7 concurrency and added checks against
+silent documentation drift. At this checkpoint, 30 commits were pushed and 331
+checks passed on Node 20 and 22. The repository was still private.
 
+Validation included a fresh clone and `npm ci`, a clean build, a healthy Docker
+container, packing/installing into an empty project, executable/import/type checks,
+four official OpenAI SDK paths, and five installer paths using local distributions.
 
-## P2
+Files covered the CLI, setup, server, ledger, config, registry, sync, catalogs,
+language probe, gateway, mesh, probe reporting, versioning, Worker example,
+Dockerfile, installer, package metadata, registry, CI, documentation, and nine tests.
 
-- サンプルの環境変数ファイル（リポジトリ直下のテンプレート）が古い。
-  NVIDIA/ZAI/MODELSCOPE/OVH/LLM7 の変数と KEYS/LEDGER/PUBLIC_HEALTH が無い。
-  🔴 ただし `block-git-secrets.sh` がそのファイル名を含むコマンドを止めるので、
-  編集・commit は本人の手でやる方が早い（フックは回避しない）
+Decisions:
 
+- Recorded `maxConcurrent=1` for llm7 after three reproductions without using an
+  account's free quota; other providers await authorization.
+- New providers created by sync default to `public`, not `internal`; privacy is a
+  human decision.
+- Did not author unreviewable native-language probe prompts.
+- Did not bypass the secrets hook for the environment template.
 
-- ヒンディー語とマラーティー語は分離できないまま（デーヴァナーガリーに区別する文字が無い。
-  語彙で分けるしかない）。ベラルーシ語も `uk` と分けていない（`be` の要求がまだ無いため）
-- he/el/hy/ka/bn/ta は判定できるが**プロンプトが英語**なので、測っているのは指示追従。
-  検証できない言語のプロンプトを自作しない（instrument が検証不能になる）
+At the checkpoint, the release workflow had never run because no tag existed.
+Public visibility and the first tagged release still needed approval; both were
+subsequently completed as recorded below. No paid quota was requested or used.
 
-## P3（実測・ネットワークが要るので AFK 中はやらない）
+## Completed engineering work
 
-- 🔴 OpenRouter カタログにある**未登録の無料モデル18件**を probe してから採用する。
-  `sync --provider=openrouter --dry-run` で一覧が出る。probe 前の追加は禁止
-  （2026-08-16 に「カタログにあるのに無料枠を離れていた」実績がある）
-- `maxConcurrent` の実測の残り（llm7 は 2026-08-22 に実測して 1 と判明・登録済み）。
-  他プロバイダは鍵が要るので、本人が「その無料枠を使ってよい」と決めてから
-- `sync` のカタログ追加の残り（NVIDIA / Chutes / ModelScope / OVHcloud）。
-  OpenRouter は実装済み・キーレスなので AFK 中でも引ける
-- `probe --language` を他言語で実走させ、registry の `languages` と突き合わせる
+- Official OpenAI SDK checks covered models.list, completion, streaming, and
+  error classification (`bd57c0f`). Added required model `created` metadata (`03d92f9`).
+- Added an executable `version` command (`28112b4`).
+- Syntax-checked setup's inline script; a blank HTTP 200 page otherwise passed all
+  tests. Confirmed the check catches an intentionally broken script (`75e0508`).
+- Documented three missing route flags and tested documentation drift (`37274a9`).
+- Changed new sync providers from internal to public privacy (`7a7cd23`).
+- Replaced an untypeable Worker snippet with a compiled example, tied it to README
+  checks, and caught the corresponding Docker failure (`8209422`, `9ed67ac`).
+- The pre-publication audit at that checkpoint checked all 50 author/committer
+  records, history, test-key placeholders, and 58 tracked files with no binaries.
+- Measured llm7's concurrency limit rather than inferring it (`b646431`).
+- Documented eight missing environment settings and added drift checks (`dc45ac9`).
+- Fixed ledger load failures being cached forever and piped output being lost by
+  process.exit (`aedbca8`).
+- Replaced raw startup stack traces for port conflicts and silent fallback on an
+  invalid registry override (`c480e8c`).
+- Terminal setup now asks for the Cloudflare account ID as well as its key (`53aba28`).
+- Fixed bin/exports/types paths from nonexistent locations to dist/src; verified
+  pack, clean install, CLI, import, and type resolution (`524c723`).
+- Validated CLI/gateway inputs: unknown profiles, invalid privacy/capabilities,
+  and NaN minimum context. Invalid gateway profiles return 400, not 500 (`ef46158`).
+- Required signup steps for shipped registry providers (`fde1dc8`).
+- Fixed concurrent key saves losing one update; confirmed the regression test fails
+  when the fix is reverted (`d7f96f4`).
+- Corrected token estimation for scripts for which four characters per token
+  undercounted usage by about fourfold (`e6a16e4`).
+- Gemini now explicitly rejects unsupported json_schema output so the mesh can
+  fall back rather than silently ignoring the format (`59eeadc`).
+- Enforced no Node-only imports reachable from the portable entrypoint; verified
+  the guard catches an intentional violation (`fe9ec63`).
+- Surfaced expiry notices in probe/route, not only during registry sync (`549b3fa`).
+- Distinguished simplified/traditional Chinese while allowing either for `zh` (`8bfacf7`).
+- Expanded key-redaction checks and removed stale test counts (`b7b929a`).
+- Validated capability/privacy names, language score ranges, expiry dates, and
+  default profiles (`4ec93a8`).
+- Fixed an unauthenticated Docker health check and a read-only key-storage path;
+  reproduced both in a built container (`befb413`).
+- Made the installer fail closed when checksums cannot be fetched or an entry is
+  missing; fixed EXIT status and executable permissions. Exercised five local
+  distribution paths (`80ec571`).
+- Fixed discovery's empty catalog destroying the baseline, all-reader failures
+  reporting success, and piped output truncation (`2d474ac`).
+- Fixed ledger concurrency that admitted three requests with rpm=2 (`913c525`).
+- Fixed setup ENOENT in bundled/standalone builds, existing environment-file
+  permissions, and blank lines introduced by repeated saves (`71e142c`).
+- Kept gateway access values out of non-TTY logs. Tested that setup fetches no
+  external host, uses a URL fragment, and never stores keys in browser storage (`ebd6569`).
+- Corrected shared-script language judgments: distinct Ukrainian/Russian and
+  Persian/Arabic characters can refute a claim; ambiguous mixed text supplies no
+  evidence (`e129ebf`).
+- Added six script detectors using a shared range table to avoid divergent
+  handwritten counters (`877c369`).
+- Probe reports now use attempt metadata, distinguish unclaimed languages from
+  faults, and never claim success when nothing was measured. Moved pure logic out
+  of the CLI into probe-report.ts (`16aad73`).
+- Added push/PR Node 20/22 tests and bundle smoke checks, eliminating tag-only
+  verification. Removed keyless-provider dependence and swallowed pipeline errors
+  from the smoke step (`89a7b9c`).
+- Added a keyless free-only OpenRouter reader and expiry handling, including timed
+  pricing overrides (`995fed1`). Sync preserves capabilities a catalog cannot express.
+- Added offline-testable `probe --language=<tag>` (`517b9ba`).
+- Disabled OpenRouter's gpt-oss-20b free entry after its probe returned 404.
 
-## 完了
+## OrcaRouter handoff completed — 2026-08-27
 
-- ✅ 公式 OpenAI SDK で実測（commit bd57c0f）。models.list / completion / streaming /
-  エラー分類すべて通過。`/v1/models` に `created` を追加（SDK が必須として型付け・commit 03d92f9）
-- ✅ `version` コマンド追加（commit 28112b4）。配布バイナリに自分のバージョンを言う手段が無かった
-- ✅ setup ページのインライン JS を構文検査（commit 75e0508）。壊れても 200 で白紙を返すだけなので
-  既存テストは全部通ってしまう。わざと壊して発火を確認
-- ✅ 未記載だった route の3フラグを追記し、ドリフトをテストで固定（commit 37274a9）
+Completed the 2026-08-25 handoff in `2df6524`, `6ef92c0`, and `279db5a`.
+Registered deepseek/deepseek-v4-flash-free, qwen/qwen3.8-27b-free, and tencent/hy3-free
+after testing text, tool_calls, and json_object. Generated code was executed with
+Node; Tencent's truncated answer was unjudged, so it was not marked code-capable.
 
-- ✅ `sync` が新規プロバイダ枠を `maxPrivacy: internal` で作っていたのを `public` に
-  （commit 7a7cd23, push済）。機密性の判断を機械がしていた
-- ✅ Worker のスニペットが**そのままでは型が通らなかった**ので、
-  ビルドでコンパイルされる `examples/worker.ts` にして README とずれたら落ちるようにした
-  （commit 8209422 / 9ed67ac, push済）。Docker ビルドが落ちたのもここで検出して修正
-- ✅ 公開前監査: 全50コミットの author/committer が GDA Labs、履歴全体で PII ゼロ、
-  鍵らしき文字列はテスト用の偽値のみ、追跡ファイル58件にバイナリなし
+Excluded `orcarouter/free`: its undisclosed router resolved to deepseek-v4-flash in
+one observation, but providers can change per request, preventing reliable privacy,
+capability, or context claims. The same policy excludes anonymous stealth models.
 
-- ✅ 🔴 llm7 の `maxConcurrent` を**実測**して 1 と確定（commit b646431, push済）。
-  ROADMAP Now の1件。鍵不要なので課金枠を使わずに測れた。3回とも再現
-- ✅ 環境変数10個のうち8個が README に無かったので表を追加し、
-  **ドキュメントが遅れたらテストが落ちる**ようにした（commit dc45ac9, push済）
-- ✅ 自己レビューで自分の当日変更から2件発見（commit aedbca8, push済）:
-  ledger のロード失敗が永久に記憶される / `fail()` が `process.exit` を使っていた
+Measured findings:
 
-- ✅ 起動時エラー2件（commit c480e8c, push済）: ポート衝突が生のスタックトレース /
-  `INFERENCEMESH_REGISTRY` のタイプミスで黙って埋め込みレジストリにフォールバック
-- ✅ ターミナル版 setup が Cloudflare の account id を聞いていなかった（commit 53aba28, push済）。
-  ブラウザ版には最初から入力欄がある。鍵だけ貼っても必ず検証に失敗する状態だった
-- ✅ 🔴 package.json の `bin`/`exports`/`types` が**存在しないパス**を指していた（commit 524c723, push済）。
-  実体は `dist/src/…`。公開すれば `npx inferencemesh` も `import` も即壊れる。
-  実際に pack → 空プロジェクトに install → bin 実行・import・型定義まで確認
+- 10 requests/minute and 50/day belong to the account, not each model. Added
+  ProviderConfig.quota, reserving the account first and refunding it if model
+  admission fails. A live server rejected request 11 as account rpm 10/10 and also
+  blocked a different model on that key.
+- Catalog pricing exposed only a flat request price, not token prices. No
+  CatalogSource was added because free token usage could not be established.
+- Qwen advertised 65536 context but the free tier returned 400 around 56k.
+  The cap is request-size based: identical text was billed as 55,803 / 30,339 /
+  30,268 prompt tokens across models. Recorded ASCII floors are not universal.
 
-- ✅ CLI/ゲートウェイの入力検証（commit ef46158, push済）。バンドル版で全コマンドを叩いて発見:
-  存在しないプロファイルでスタックトレース / `--privacy` `--capabilities` の打ち間違いが
-  「registry が悪い」ように見えるメッセージになる / `--min-context=abc` が NaN で無効化。
-  ゲートウェイでは `mesh/fastest` が **500**（＝サーバ側の障害）として返っていたのを 400 に
-- ✅ 出荷レジストリの signupSteps 完備をテストで固定（commit fde1dc8, push済）
+Cleanup (`83088a5`): documented both quota layers in the example registry, added
+OrcaRouter to concurrency work and request-size limits to ROADMAP, and recorded
+thinking-model truncation. Fixed Docker's missing translated README copies: tests
+had failed since `6c05344`; this was the third documented copy omission.
 
-- ✅ 鍵の同時保存で片方が消える競合を修正（commit d7f96f4, push済）。
-  「保存しました」と表示した後に消える種類。修正を戻してテストが落ちることを確認済み
-- ✅ `estimateTokens` が日本語を英語の規則（4文字=1トークン）で数えていた（commit e6a16e4, push済）。
-  約4倍の過小評価で、日次トークン上限が効かない方向（＝使い過ぎ）にずれる
-- ✅ Gemini の `response_format: json_schema` が黙って無視されていた（commit 59eeadc, push済）。
-  明示的に失敗させ、mesh が対応プロバイダにフォールバックするようにした
+Remaining: unmeasured OrcaRouter concurrency, language/quality ratings (neutral
+DEFAULT_QUALITY_SCORE), and a request-size limit design. Its 50/day allowance means
+a concurrency test needs a dedicated day without other tests using that allowance.
 
-- ✅ 「同じコードが Worker でも動く」をテストで固定（commit fe9ec63, push済）。
-  index.ts から辿れる範囲に node: の import が入ったら落ちる。**わざと壊して発火を確認済み**
-- ✅ `expiresAt` を probe / route にも出すようにした（commit 549b3fa, push済）。
-  sync のレポートは「レジストリを作り直す時」にしか読まれないので、定期実行する側に出す
-- ✅ 簡体/繁体の区別（commit 8bfacf7, push済）。`zh` 単体は両方を受け入れる
+## Session 2026-09-05
 
-- ✅ README の「鍵はログに出ない — テストで強制」が**半分しか強制されていなかった**ので
-  テストを追加（commit b7b929a, push済）。ドキュメントの古いテスト数（148/83）も削除
-- ✅ config の検証強化（commit 4ec93a8, push済）。`capabilities` の打ち間違い・maxPrivacy の
-  打ち間違い・languages の 72（0.72 のつもり）・expiresAt・defaultProfile が全部素通りしていた
+- Switched the development agent to the free MuseSpark configuration. Permission
+  settings took effect after restart.
+- Rebased probe-reply-budget onto origin/main and incorporated pending changes;
+  388 tests passed, up from 366.
+- Upgraded checkout/setup-node to v5; artifact actions remained on their current v4.
+- First release workflow completed for v0.1.0-rc.1: five binaries plus checksums.
+  Replaced a flaky 50ms server-stream sleep with polling after rerunning the job (`29dc0c2`).
+- Verified Cloudflare OpenAI compatibility; account ID remained outstanding.
+  Excluded SambaNova after a 402 showed its free tier had been withdrawn.
+  Mistral Experiment remained available, with key acquisition left to the operator.
+- Disabled Qwen after it vanished from both catalog and free-package endpoints
+  (`58ccefb`), removed it from OrcaRouter discovery, and regenerated model docs.
+- Unprobed candidates: inclusionai/ling-3.0-flash-sante:free, llm7's
+  gpt-5.5-openai-compact/gpt-6-astra, and OrcaRouter's z-ai/glm-5.3-flash-free.
+- OrcaRouter's account gate prevented probing even its remaining two models.
 
-- ✅ Docker 2件（commit befb413, push済）: HEALTHCHECK がトークン無しで認証必須の /healthz を
-  叩いていて**永久に unhealthy**（実測 failing streak 3）/ 鍵の保存先が read-only の /app 配下で
-  **検証成功後に書き込み失敗**。ビルドして実測確認
+## Sessions 2026-09-16–17 — public distribution
 
-- ✅ `install.sh` を fail-closed に（commit 80ec571, push済）。SHA256SUMS が取れない/
-  エントリが無い場合に黙ってインストールしていた。`file://` のローカル配布物で全5経路を実測。
-  ついでに EXIT トラップの戻り値で「成功したのに exit 1」になる穴と、0711 のパーミッションも修正
-- ✅ `discover-providers.mjs` 3件（commit 2d474ac, push済）: 空のカタログ応答を diff 扱いして
-  全件 GONE + baseline 破壊 / 全カタログ失敗でも exit 0（「静かな週」と区別がつかない）/
-  `process.exit()` でパイプ出力の末尾を捨てる（cli.ts が一度学んだ問題の再発）
-- ✅ ledger の競合修正（commit 913c525, push済）。実測で rpm=2 に3件通っていた
+- Published the repository after checking tracked files and history for leaked
+  credentials. Keyless llm7 inference succeeded; other provider checks avoided
+  inference quota. OpenRouter catalog access and Cloudflare credential validation
+  succeeded, while OrcaRouter free access remained gated.
+- Installed the public binary unauthenticated into a temporary directory and
+  verified its checksum. Keyless route free offered only llm7/minimax-m2.7.
+- Cloudflare credentials existed only in process environment at that checkpoint;
+  the operator still needed persistent CLI configuration.
+- Fixed Docker tests failing because scripts/ and docs/ were not copied (`d22c445`).
+  Checked version, keyless routing, and live llm7 inference in a clean container.
+- Listed InferenceMesh on gdalabs.dev. Its production source is a manual Cloudflare
+  Pages deployment (gdalabs-website), not GitHub Pages. Explicit branch main selects
+  production; omitting the branch produced a preview in that workflow.
 
-- ✅ 単一バイナリ/バンドルで `inferencemesh setup` が ENOENT で即死していたのを修正
-  （commit 71e142c, push済）。release workflow と install.sh が配るのはこのビルド。
-  あわせて .env の 0600 化（既存ファイルには mode が効かない）と mergeEnv の空行混入も修正
-- ✅ ゲートウェイのトークンを journal に出さないようにした（commit ebd6569, push済）。
-  TTY のときだけ setup URL にトークンを出す。setup ページの不変条件3つもテスト化
-  （外部ホストを読まない / token は fragment から / 鍵をブラウザ storage に置かない）
-- ✅ 文字種を共有する言語の誤判定を修正（commit e129ebf, push済）。
-  ウクライナ語が `ru` の claim を confirm しなくなった。ペルシア語/アラビア語も同様。
-  判定は「否定にしか使えない」設計（両方の固有文字が出たら証拠なしとして扱う）
-- ✅ 判定できる文字種を6つ追加（he/el/hy/ka/bn/ta・commit 877c369, push済）。
-  カウンタを範囲テーブルから生成するようにした（手書き並列リストは同期漏れで無音の0になる）
-- ✅ `probe` の3つの「嘘をつく緑」を修正（commit 16aad73, push済）:
-  status をメッセージの正規表現ではなく `detail.attempts` から読む /
-  `languages` が何も言っていない言語を claim 扱いして FAULT にしていた /
-  1件も測れていない実行が「no contradictions」と表示されていた。
-  純粋部分を `src/probe-report.ts` に切り出してテスト（cli.ts は import で CLI が走るのでテスト不能）
-- ✅ CI: push/PR で `npm test`（Node 20/22）+ bundle の smoke test（commit 89a7b9c, push済）。
-  タグ時にしか検証されない状態を解消。smoke step の2つの穴も塞いだ
-  （キーレス provider 依存 / `bash -e` で `node … | head` の exit code が握り潰される）
-- ✅ OpenRouter カタログリーダー（キーレス・無料枠のみ）+ `expiresAt`
-  （commit 995fed1, push済）。`pricing.overrides` の時間帯課金を無料判定に織り込み済み
-- ✅ sync のバグ修正: カタログが表現できない能力（`code`）を消さないようにした（同 commit）
-- ✅ `probe --language=<tag>` 実装（commit 517b9ba）。判定器は純粋・オフラインでテスト可能
-- ✅ `openrouter-free/openai/gpt-oss-20b:free` を disabled（無料枠から離脱・404 を probe が検出）
+## Sessions 2026-09-17 — masking
 
-## ✅ 受信箱 消化済み — OrcaRouter（2026-08-27 対応完了）
-
-Root セッション（2026-08-25）からの引き渡しは全て処理した。commit 2df6524 / 6ef92c0 / 279db5a。
-
-**登録したのは3モデル**（`deepseek/deepseek-v4-flash-free` / `qwen/qwen3.8-27b-free` /
-`tencent/hy3-free`）。2026-08-27 に text・tool_calls・json_object を実測し、code は
-生成関数を実際に node で走らせて確認した（tencent だけ finish_reason='length' で判定不能なので
-capabilities に code を入れていない）。
-
-🔴 **`orcarouter/free` は意図的に外した。** 裏側を明かさないルーターで、実測では
-`deepseek-v4-flash` に解決した。どの事業者に渡るかがリクエストごとに変わりうるので、
-capability も context も privacy も記録できない。`stealth/*` を弾くのと同じ理由。
-
-### この作業で出た、引き渡し内容と食い違った実測
-
-- 🔴 **10req/分・50req/日 はモデル単位では書けなかった。** quota のキーが
-  `provider/model` だったので、3モデルに書くと 30req/分 を許す。`ProviderConfig.quota` を
-  新設し、口座単位で予約 → モデル単位で予約 → 内側が拒否したら外側を払い戻す2層にした。
-  実サーバで11発目が `account rpm 10/10` で止まり、**同じ鍵の別モデルも止まる**ことを確認済み
-- 🔴 **カタログは「トークンが無料」と言っていない。** `pricing` は `{"request":"0.000000"}` だけで
-  per-token 価格を持たない。だから `CatalogSource` は足していない（無料判定が機械的にできない）
-- 🔴 **contextWindow は無料枠のリクエスト上限であって、モデルの context 長ではない。**
-  qwen はカタログ上 65536 だが無料枠は約56kで 400。しかも上限はトークンではなく
-  リクエストのサイズで効く（同一テキストで prompt_tokens が 55,803 / 30,339 / 30,268 と
-  割れたまま3件とも通った）。書いたのは ASCII での実測下限で、**日本語ではより早く上限に当たる**
-
-### 後始末（2026-08-27・commit 83088a5 で完了）
-
-- ✅ `providers.example.json` に2層の quota を両方載せた。旧コメントは
-  「the per-minute quota **below**」と書きながら、そのファイルに quota が1つも無かった
-- ✅ ROADMAP: OrcaRouter を同時実行測定の「鍵は要るが完全無料」という第3のケースとして追記。
-  リクエストサイズ上限の表現方法を Now に新項目として追加
-- 🔴 ✅ **コンテナが昨日から自分のテストに落ちていた。** README を4言語化した時点
-  （commit 6c05344）から Dockerfile が `README.md` しかコピーしておらず、翻訳テスト5件が
-  ENOENT。**その間に誰もイメージを建てなかったので気づかれなかった**。glob に変更して修正。
-  Dockerfile のコメントには**同じ見落としが過去2回**記録されていた（今回が3回目）
-- ✅ 3モデルとも思考型で、小さい `max_tokens` だと `content: null` /
-  `finish_reason: 'length'` が返ることをレジストリに記録
-
-### まだ残っていること
-
-- OrcaRouter の `maxConcurrent` は未実測（推測で書かない方針のため空のまま）。
-  **完全無料なので他社の枠を使わずに測れる唯一の対象**だが、50req/日 なので測る日は他をやらない
-- `languages` / `quality` は未評価のまま（`DEFAULT_QUALITY_SCORE` で中立に扱われる）
-- 🔴 `contextWindow` に書いたのは **ASCII での実測下限**。日本語ではより早く上限に当たる。
-  リクエストサイズ上限を表現する方法自体が未設計（ROADMAP の Now）
-
-
-## まだ本人の判断待ち
-
-1. ✅ **公開（public 化）の判断** → 2026-09-16 にpublic化済み（secret sweep: tracked files・historyとも鍵混入なし）
-2. ✅ 最初のタグでリリース経路を検証 → `v0.1.0-rc.1`（2026-09-05）でrelease workflowが史上初完走。5バイナリ＋SHA256SUMS公開済み
-3. OpenRouter の未登録無料モデル18件を probe して採用（鍵が要る）
-4. ✅ 未 push の commit → 解消済み（2026-09-05、main にpush済み。以降も都度push）
-5. OrcaRouterワークスペースに定着したGitHub連携（`err_free_access_denied` で無料枠が現在停止中。コンソール→profile settingsで本人が操作）
-6. `.env` への `CLOUDFLARE_ACCOUNT_ID` と `MISTRAL_API_KEY` 投入（投入後にprobe実測）
-
-## セッション 2026-09-05（OpenCode + MuseSpark）
-
-- 開発エージェントを有料から MuseSpark（無料）に切替。opencode権限は全体自動（`~/.config/opencode/opencode.json` に `"permission": "allow"`、再起動で反映）
-- 分岐解消：`probe-reply-budget` を `origin/main` にrebase＋未コミット吸収。テスト388件（366→+22）
-- CI v5化（checkout/setup-node。upload/download-artifactはv4が現行のため据置）
-- `v0.1.0-rc.1` で初リリース検証。CIはNode 20の1件flake（server-stream 50ms固定sleep）→同一jobリラン緑→poll化修正（`29dc0c2`）
-- 無料枠検証：Cloudflare OpenAI互換は公式確認（adapter対応済み、あとはACCOUNT_IDのみ）。SambaNova無料枠は撤回済み（402）と判明し除外。Mistral Experimentは生存（鍵取得は本人の手）
-- 腐敗対応：`qwen/qwen3.8-27b-free` が `/v1/models`＋`/api/free-package/public` の両方から消滅 → registryでdisabled化（削除せず、`58ccefb`）。orcaのFREE_MODELSからも除去。`docs/models.md` 再生成
-- 新候補（未probe）：`inclusionai/ling-3.0-flash-sante:free`（openrouter/nous）、llm7の `gpt-5.5-openai-compact`/`gpt-6-astra`、orcarouterの `z-ai/glm-5.3-flash-free`
-- 🔴 OrcaRouter無料枠は現在アカウントゲートで停止中（`err_free_access_denied`、retryable:false。再試行は無意味）。qwen以外の2件もprobe不能。ゲート解除後に再probeすること
-
-## セッション 2026-09-16（公開作業）
-
-- secret sweep: `.env` 未追跡・historyに鍵混入なし・tracked内の一致はkey prefixの文書のみ → **public化実行**
-- 鍵ゼロ経路の再確認：`probe --provider=llm7` 1/1 reachable（鍵なし実測応答）。他鍵は無消費で検証：OpenRouterは `/models` 200、Cloudflare tokenはverifyでactive。OrcaRouter鍵自体は有効だが無料枠はaccount gate停止中
-- 公開install検証：未認証で `install.sh | sh`（BIN_DIR=/tmp）→ checksum ok。鍵ゼロの `route free` は llm7/minimax-m2.7 のみを提示。公開ストーリー成立
-- ⚠️ `CLOUDFLARE_API_TOKEN` は `.env` になくプロセスenvにのみ存在。本人のCLI利用には `.env` への TOKEN＋ACCOUNT_ID 投入が必要
-
-## セッション 2026-09-16〜17（Docker検証・公開・gdalabs.dev掲載）
-
-- 隔離コンテナ検証：ビルド内テストが2件失敗→原因は同種omission（`scripts/` と `docs/` 未COPY、`d22c445` で修正）。素コンテナで version・鍵ゼロroute（llm7のみ）・llm7 live probeを実測確認。CI緑
-- **gdalabs.devにInferenceMeshを掲載**：`gdalabs/website` のindex.htmlにカード追加→push。注意：実ドメインはGitHub Pagesではなく **Cloudflare Pages（`gdalabs-website`）の手動デプロイ** が正本。`wrangler pages deploy --branch main` でproduction反映を確認（`--branch` 省略だとPreview扱いになる）
-
-## セッション 2026-09-17（P0マスク試作・shatter設計）
-
-- 無料枠はプロンプトを保持する前提で「学習されても困らない」方向に着手。P0として `src/redact.ts` を試作：送信前に固有名詞等を `[[IMESH-E1]]` 形式に置換、応答をローカル復元。失敗時は質が落ちるだけで漏れない設計。7件のテスト。全395件pass（`d15716f`、CI緑）
-- P1（事業者の異なるプロバイダへ質問分散＋ローカル結合）とP2（おとり問いは枠消費のためopt-in）をROADMAP Nextに積み。保証の限界（共謀で復元可・結合点は全知・問いの存在は隠せない）も明記
-- 付帯：git addガードが `secret` の語に反応してsrcをブロック。中身に鍵はなく誤検知のため識別子・コメントを `sensitive/terms` に改名して回避
-- 未決：P0の露出方法（CLIフラグ `--mask` かgateway属性か）。配線は未実装
-
-## セッション 2026-09-17（A実装・README文書化・live検証の壁）
-
-- A（gateway拡張経由マスク）を実装：`body.mesh.mask` で語リスト→送信前エイリアス化→応答復元。フォールバック再送も原文なし。stream＋maskは400。テスト6件、全401件pass（`d0d80cb`、CI緑）
-- README 4言語に `mesh.mask` 節を追加（`98491d5`）。保証は狭く明記：字面は出ない、形・話題・事実は出る、stream併用は400
-- live検証は未完：llm7が502/503のプロバイダ障害、openrouter-freeが429混雑。probe（短文・少トークン）は通るが実chatが返らず、マスク復元の実機確認は単体テストの範囲に留まる。復旧後にgateway再投すること
-- 付帯：標準ポート8910は何か別物が占有中。実機検証は8919等を使うこと
+- Implemented local term masking using [[IMESH-E1]] aliases and local restoration.
+  A failed restoration reduces quality without sending the original terms. Seven
+  new tests brought the suite to 395 (`d15716f`).
+- Recorded later work for distributing questions across independent providers and
+  merging locally; decoy requests remain opt-in because they consume quota.
+  Provider collusion, the omniscient merge point, and question visibility limit
+  what this design can promise.
+- The staging guard falsely flagged a word in source; renamed identifiers and
+  comments to sensitive/terms, with no actual key present.
+- Implemented body.mesh.mask through the gateway, preserving aliases on fallback.
+  Streaming plus masking returns 400. Six new tests brought the suite to 401 (`d0d80cb`).
+- Documented masking in all four README translations (`98491d5`). It hides literal
+  terms but not structure, topics, or facts. Live restoration remains unverified
+  because of provider outages and rate limiting; unit checks are passing.

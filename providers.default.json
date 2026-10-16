@@ -23,8 +23,8 @@
       "apiKeyEnv": "NOUS_API_KEY",
       "maxPrivacy": "public",
       "signupUrl": "https://portal.nousresearch.com/",
-      "summary": "Nous Portal の無料モデル。カタログ確認済み、推論は未検証",
-      "freeTierNote": "価格ゼロの5モデルを掲載。APIキー未取得のため全モデル disabled。キー投入後に `inferencemesh probe` を実行し、成功したものだけ disabled を外す",
+      "summary": "Free models from Nous Portal; catalog checked, inference not yet verified.",
+      "freeTierNote": "Five zero-price models are listed. All remain disabled until an API key is available. Run `inferencemesh probe` after configuring a key and enable only models that pass.",
       "signupSteps": {
         "ja": [
           "portal.nousresearch.com を開く",
@@ -136,8 +136,8 @@
       "apiKeyEnv": "GROQ_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://console.groq.com/keys",
-      "summary": "Llama と MiniMax M2.7 が非常に高速",
-      "freeTierNote": "無料枠あり・クレジットカード不要",
+      "summary": "Fast inference for Llama and MiniMax M2.7.",
+      "freeTierNote": "Free tier available; no credit card required.",
       "keyPrefix": "gsk_",
       "signupSteps": {
         "ja": [
@@ -279,8 +279,8 @@
       "apiKeyEnv": "GEMINI_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://aistudio.google.com/apikey",
-      "summary": "Google Gemini（画像も読める・日本語が強い）",
-      "freeTierNote": "無料枠あり・クレジットカード不要",
+      "summary": "Google Gemini with image input and multilingual support.",
+      "freeTierNote": "Free tier available; no credit card required.",
       "keyPrefix": "AIza",
       "signupSteps": {
         "ja": [
@@ -370,8 +370,8 @@
       "apiKeyEnv": "NVIDIA_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://build.nvidia.com/",
-      "summary": "DeepSeek・Kimi・MiniMax・GLM が全部そろう",
-      "freeTierNote": "無料・クレジットカード不要（NVIDIA Developer Program の登録が要る）",
+      "summary": "DeepSeek, Kimi, MiniMax, and GLM in one catalog.",
+      "freeTierNote": "Free; no credit card required. NVIDIA Developer Program registration is required.",
       "keyPrefix": "nvapi-",
       "signupSteps": {
         "ja": [
@@ -546,8 +546,8 @@
       "apiKeyEnv": "ZAI_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://z.ai/manage-apikey/apikey-list",
-      "summary": "GLM 本家。flash 系が無料",
-      "freeTierNote": "無料枠あり（同時実行1）",
+      "summary": "GLM from its original provider, with free flash models.",
+      "freeTierNote": "Free tier available; one concurrent request.",
       "signupSteps": {
         "ja": [
           "z.ai を開いてアカウントを作る",
@@ -667,8 +667,8 @@
       "apiKeyEnv": "MODELSCOPE_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://modelscope.cn/my/myaccesstoken",
-      "summary": "DeepSeek V4 と MiniMax M3（中国本土でホスト）",
-      "freeTierNote": "無料枠あり",
+      "summary": "DeepSeek V4 and MiniMax M3, hosted in mainland China.",
+      "freeTierNote": "Free tier available.",
       "keyPrefix": "ms-",
       "signupSteps": {
         "ja": [
@@ -774,8 +774,8 @@
       "accountIdEnv": "CLOUDFLARE_ACCOUNT_ID",
       "maxPrivacy": "internal",
       "signupUrl": "https://dash.cloudflare.com/profile/api-tokens",
-      "summary": "Kimi K2.5 と GLM-4.7-flash",
-      "freeTierNote": "無料枠は1日10,000 Neurons。大きいモデルは有料プラン専用",
+      "summary": "Kimi K2.5 and GLM-4.7-flash.",
+      "freeTierNote": "The free tier includes 10,000 Neurons per day. Larger models require a paid plan.",
       "signupSteps": {
         "ja": [
           "dash.cloudflare.com にログイン",
@@ -935,8 +935,8 @@
       "apiKeyEnv": "OPENROUTER_API_KEY",
       "maxPrivacy": "internal",
       "signupUrl": "https://openrouter.ai/keys",
-      "summary": "多数のモデルを1つの鍵で。無料枠のモデルのみ登録済み",
-      "freeTierNote": "無料モデルのみ使う限り課金なし",
+      "summary": "Many models with one key; only free-tier models are registered.",
+      "freeTierNote": "No charges while using only free models.",
       "keyPrefix": "sk-or-v1-",
       "signupSteps": {
         "ja": [
@@ -1082,8 +1082,8 @@
       "apiKeyEnv": "OVH_AI_TOKEN",
       "maxPrivacy": "internal",
       "signupUrl": "https://endpoints.ai.cloud.ovh.net/",
-      "summary": "Qwen 系（EU・フランスでホスト）",
-      "freeTierNote": "無料枠あり",
+      "summary": "Qwen models hosted in the EU (France).",
+      "freeTierNote": "Free tier available.",
       "signupSteps": {
         "ja": [
           "endpoints.ai.cloud.ovh.net を開く",
@@ -1163,8 +1163,8 @@
       "maxPrivacy": "public",
       "maxConcurrent": 1,
       "signupUrl": "https://token.llm7.io/",
-      "summary": "登録しなくても使える。鍵を入れると使えるモデルが増える",
-      "freeTierNote": "完全無料・鍵なしでも動く",
+      "summary": "Works without registration; adding a key unlocks more models.",
+      "freeTierNote": "Completely free; works without a key.",
       "signupSteps": {
         "ja": [
           "鍵なしでもう動いています。より多くのモデルを使いたい場合のみ token.llm7.io で無料トークンを取得してください"
@@ -1230,8 +1230,8 @@
         "requestsPerDay": 50
       },
       "signupUrl": "https://www.orcarouter.ai/console/keys",
-      "summary": "GitHub ログインだけで使える無料枠。DeepSeek V4 Flash / Qwen3.8 / Tencent Hy3",
-      "freeTierNote": "無料枠あり・クレジットカード不要（GitHub 連携）",
+      "summary": "Free tier with GitHub sign-in: DeepSeek V4 Flash, Qwen3.8, and Tencent Hy3.",
+      "freeTierNote": "Free tier available; no credit card required. Uses GitHub sign-in.",
       "keyPrefix": "sk-",
       "signupSteps": {
         "ja": [

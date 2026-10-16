@@ -28,7 +28,7 @@ import { Registry } from './registry.js';
 import type { ProviderConfig } from './types.js';
 import { validationRequest } from './validation-probe.js';
 
-type Lang = 'en' | 'ja';
+type Lang = 'en' | 'zh' | 'ja';
 
 const MSG = {
   en: {
@@ -55,6 +55,32 @@ const MSG = {
       'Free tiers have no uptime promise and can be withdrawn without notice. Fine for learning and side projects; not for anything anyone depends on.',
       'Some free models reply with their own reasoning out loud ("The user asks..."). That is the model, not a bug in your code — strip it or pick another.',
       'This gateway never falls back to a paid model. If every free tier is exhausted it returns an error, so a mistake cannot become a bill.',
+    ],
+  },
+  zh: {
+    intro: 'InferenceMesh 设置 — 免费 AI 模型，无需信用卡。',
+    already: '已设置',
+    keyless: '无需密钥即可使用',
+    noSignup: '未记录注册页面；请自行设置环境变量',
+    freeTier: '免费额度',
+    getKey: '在此获取密钥',
+    envVar: '请在下方粘贴密钥。保存位置：',
+    prompt: (id: string) => `  ${id} 密钥（留空跳过）：`,
+    promptAccount: (id: string) => `  ${id}（也需要填写）：`,
+    checking: '  正在验证...',
+    ok: (ms: number) => `  验证成功 — ${ms}ms 内收到回复`,
+    bad: (why: string) => `  此密钥无法使用：${why}`,
+    retry: '  再试一次？[y/N]: ',
+    saved: (n: number) => `\n已保存 ${n} 个可用密钥。`,
+    none: '\n未添加密钥。仍可使用无需密钥的提供商 — 运行 inferencemesh probe 查看。',
+    summary: '现在可以运行：inferencemesh probe',
+    trapsTitle: '开始使用前 — 免费额度的实际代价：',
+    traps: [
+      '提供商可能使用提示词训练模型。请勿发送私人、医疗或他人的个人信息。',
+      '不要把密钥放进网页或手机应用。发送到浏览器的内容都是公开的。请将密钥保留在服务端。',
+      '免费额度没有可用性保证，可能随时取消。适合学习和个人项目。',
+      '部分免费模型会输出思考过程。这是模型行为；可以过滤输出或更换模型。',
+      '此网关不会自动切换到付费模型。免费额度耗尽时会返回错误。',
     ],
   },
   ja: {
@@ -85,13 +111,12 @@ const MSG = {
   },
 } as const;
 
-function pickLang(env: NodeJS.ProcessEnv): Lang {
+export function pickLang(env: NodeJS.ProcessEnv): Lang {
   const explicit = env['INFERENCEMESH_LANG'];
-  if (explicit === 'ja' || explicit === 'en') return explicit;
-  // The audience this is written for is far more likely to have a Japanese
-  // locale than to know there is a language flag.
-  const locale = env['LC_ALL'] ?? env['LC_MESSAGES'] ?? env['LANG'] ?? '';
-  return /^ja/i.test(locale) ? 'ja' : 'en';
+  if (explicit === 'en' || explicit === 'zh' || explicit === 'ja') return explicit;
+  const locale = env['LC_ALL'] || env['LC_MESSAGES'] || env['LANG'] || '';
+  const language = locale.split(/[-_.]/)[0]?.toLowerCase();
+  return language === 'zh' || language === 'ja' ? language : 'en';
 }
 
 /** Verify a key by actually calling the provider once, cheaply. */

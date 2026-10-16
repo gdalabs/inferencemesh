@@ -5,7 +5,7 @@ import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { mergeEnv, runSetup } from '../src/setup.js';
+import { mergeEnv, runSetup, pickLang } from '../src/setup.js';
 import type { ProviderConfig } from '../src/types.js';
 
 describe('mergeEnv', () => {
@@ -213,5 +213,17 @@ describe('runSetup over a pipe', () => {
     // The embedded registry is loaded by the caller now; setup must cope with
     // whatever it gets rather than assuming a shape.
     assert.equal((await drive({}, [])).code, 0);
+  });
+});
+
+
+describe('terminal language selection', () => {
+  test('supports English, Chinese, and Japanese without a preferred home locale', () => {
+    assert.equal(pickLang({}), 'en');
+    assert.equal(pickLang({ LANG: 'zh_CN.UTF-8' }), 'zh');
+    assert.equal(pickLang({ LANG: 'ja_JP.UTF-8' }), 'ja');
+    assert.equal(pickLang({ LANG: 'de_DE.UTF-8' }), 'en');
+    assert.equal(pickLang({ INFERENCEMESH_LANG: 'zh', LC_ALL: 'ja_JP' }), 'zh');
+    assert.equal(pickLang({ LC_ALL: '', LANG: 'zh_TW.UTF-8' }), 'zh');
   });
 });

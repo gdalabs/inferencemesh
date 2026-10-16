@@ -360,7 +360,7 @@ inferencemesh route free --min-context=200000
 | `INFERENCEMESH_SHOTS` | `.inferencemesh/shots` | 설정 안내용 스크린샷 디렉터리. `<provider>-<n>.png`. 없어도 됩니다(그림이 그려집니다) |
 | `INFERENCEMESH_LEDGER` | `.inferencemesh/ledger.json` | 할당량 카운터. **볼륨에 두세요.** 아니면 재시작할 때마다 그날 쓴 양을 잊습니다 |
 | `INFERENCEMESH_CONCURRENCY_WAIT_MS` | `30000` | *모든* 후보가 바쁠 때 대기하는 시간. `0`이면 기다리지 않고 실패 |
-| `INFERENCEMESH_LANG` | *(로케일)* | 설정 마법사의 언어(`ja` / `en`). 기본값은 시스템 로케일 |
+| `INFERENCEMESH_LANG` | *(로케일)* | 설정 마법사의 언어(`en` / `zh` / `ja`). 기본값은 시스템 로케일 |
 
 제공자 키는 각 항목의 `apiKeyEnv`가 밝히는 변수입니다(`GROQ_API_KEY`, `OPENROUTER_API_KEY`
 등). 키가 없는 제공자는 건너뛰고 `/healthz`에 이름이 나옵니다.
