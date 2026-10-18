@@ -34,9 +34,12 @@ the terminal wizard supports English, Chinese, and Japanese.
   integration under console profile settings, then re-probe the remaining models.
 - The operator still needs to configure Cloudflare account credentials and the
   Mistral key before live probes. Do not read credential files as part of handoff work.
-- Masking needs a successful live chat retry after provider recovery. llm7 returned
-  502/503 and OpenRouter returned 429; short probes succeeded but full chat did not.
-- Port 8910 was already occupied during live testing. Use an available port such as 8919.
+- ~~Masking needs a successful live chat retry after provider recovery.~~ Done
+  2026-10-18, see the masking section below. llm7 had returned
+  502/503 and OpenRouter 429 during the first attempt; short probes succeeded
+  while full chat did not.
+- Port 8910 was already occupied during live testing. Use an available port such
+  as 8919.
 
 ## Autonomous session 2026-08-22
 
@@ -212,5 +215,8 @@ a concurrency test needs a dedicated day without other tests using that allowanc
 - Implemented body.mesh.mask through the gateway, preserving aliases on fallback.
   Streaming plus masking returns 400. Six new tests brought the suite to 401 (`d0d80cb`).
 - Documented masking in all four README translations (`98491d5`). It hides literal
-  terms but not structure, topics, or facts. Live restoration remains unverified
-  because of provider outages and rate limiting; unit checks are passing.
+  terms but not structure, topics, or facts. Live restoration was verified on
+  2026-10-18 (`eaa49e7`): two gateway chats through `mesh/free` on port 8919, one
+  answered by `nvidia/nemotron-3-ultra-550b-a55b:free`, one by llm7's minimax.
+  Both replies had every alias restored, none left behind, `finish_reason: stop`;
+  the server log held no aliases and no keys. The 2026-09-17 restriction is lifted.
